@@ -150,7 +150,18 @@ export class YouTrackAPI {
       return payload.map((issue: any) => this.parseCustomFields(issue));
     } catch (error: any) {
       console.error('Chyba při načítání issues:', error);
-      throw new Error(`Nepodařilo se načíst issues: ${error.message}`);
+      const responseData = error?.response?.data;
+      const responsePreview =
+        typeof responseData === 'string'
+          ? responseData.slice(0, 260)
+          : responseData
+            ? JSON.stringify(responseData).slice(0, 260)
+            : '';
+      throw new Error(
+        `Nepodařilo se načíst issues: ${error.message}${
+          responsePreview ? ` | Response: ${responsePreview}` : ''
+        }`,
+      );
     }
   }
 
