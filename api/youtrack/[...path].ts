@@ -71,7 +71,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     let selectedStatus = 502;
     let selectedContentType = 'application/json';
     let selectedText = '{"error":"Proxy request failed."}';
-    let bestErrorStatus = -1;
+    let bestScore = -1;
 
     for (const target of candidates) {
       const response = await fetch(target, requestInit);
@@ -88,14 +88,19 @@ export default async function handler(req: any, res: any): Promise<void> {
         break;
       }
 
-      // Keep the most informative API-style error as fallback.
-      if (isJson && !looksHtml && response.status > bestErrorStatus) {
-        bestErrorStatus = response.status;
-        selectedStatus = response.status;
-        selectedContentType = contentType;
-        selectedText = text;
-      } else if (bestErrorStatus < 0) {
-        // If we have only HTML/non-JSON errors so far, keep latest.
+      // Fallback scoring:
+      // 1) JSON non-404 errors (usually auth/perms) are more useful than 404s.
+      // 2) JSON 404s are better than HTML responses.
+      // 3) Keep highest score among non-success responses.
+      let score = 0;
+      if (isJson && !looksHtml) {
+        score = response.status === 404 ? 100 + response.status : 500 + response.status;
+      } else {
+        score = response.status;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
         selectedStatus = response.status;
         selectedContentType = contentType;
         selectedText = text;
