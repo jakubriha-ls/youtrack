@@ -3,8 +3,8 @@ import { YouTrackAPI } from './api/youtrack';
 import { YouTrackConfig, YouTrackIssue } from './types';
 import { ConfigForm } from './components/ConfigForm';
 import { GanttChart } from './components/GanttChart';
-import { KanbanBoard } from './components/KanbanBoard';
 import { AllTasks } from './components/AllTasks';
+import { Statistics } from './components/Statistics';
 import { ConfigProvider } from './ConfigContext';
 
 const STORAGE_KEY = 'youtrack-config';
@@ -24,7 +24,7 @@ function App() {
   const [allTasksIssues, setAllTasksIssues] = useState<YouTrackIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'gantt' | 'ganttall' | 'kanban' | 'alltasks'>('gantt');
+  const [activeView, setActiveView] = useState<'gantt' | 'ganttall' | 'statistics' | 'alltasks'>('gantt');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [dashboardPassword, setDashboardPassword] = useState<string>('');
@@ -73,14 +73,14 @@ function App() {
     if (savedUi) {
       try {
         const parsedUi = JSON.parse(savedUi) as Partial<{
-          activeView: 'gantt' | 'ganttall' | 'kanban' | 'alltasks';
+          activeView: 'gantt' | 'ganttall' | 'statistics' | 'alltasks';
           selectedTags: string[];
           selectedTag: string;
           theme: 'dark' | 'light';
         }>;
         if (
           parsedUi.activeView &&
-          ['gantt', 'ganttall', 'kanban', 'alltasks'].includes(parsedUi.activeView)
+          ['gantt', 'ganttall', 'statistics', 'alltasks'].includes(parsedUi.activeView)
         ) {
           setActiveView(parsedUi.activeView);
         }
@@ -324,10 +324,10 @@ function App() {
     📅 Gantt all tasks
   </button>
   <button
-    className={`tab ${activeView === 'kanban' ? 'active' : ''}`}
-    onClick={() => setActiveView('kanban')}
+    className={`tab ${activeView === 'statistics' ? 'active' : ''}`}
+    onClick={() => setActiveView('statistics')}
   >
-    📋 Kanban Board
+    📊 Statistics
   </button>
   <button
     className={`tab ${activeView === 'alltasks' ? 'active' : ''}`}
@@ -342,7 +342,7 @@ function App() {
               <GanttChart issues={wcIssues} variant="wc" sortedByLabel={wcSortedByLabel} />
             )}
             {activeView === 'ganttall' && <GanttChart issues={allTasksIssues} variant="all" />}
-            {activeView === 'kanban' && <KanbanBoard issues={wcIssues} />}
+            {activeView === 'statistics' && <Statistics issues={allTasksIssues} />}
             {activeView === 'alltasks' && <AllTasks issues={allTasksIssues} />}
           </div>
         </>

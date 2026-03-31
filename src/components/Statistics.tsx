@@ -1,142 +1,157 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { YouTrackIssue } from '../types';
-import { STATUS_COLORS, STATUS_ORDER, getStatusDisplayName } from '../statusMeta';
 
 interface StatisticsProps {
   issues: YouTrackIssue[];
 }
 
 export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
-  // Seskupení issues podle týmů
-  const issuesByTeam: Record<string, YouTrackIssue[]> = {};
-  
-  issues.forEach(issue => {
-    if (issue.mktTeam && issue.mktTeam.length > 0) {
-      issue.mktTeam.forEach(team => {
-        if (!issuesByTeam[team]) {
-          issuesByTeam[team] = [];
-        }
-        issuesByTeam[team].push(issue);
-      });
-    } else {
-      if (!issuesByTeam['Bez týmu']) {
-        issuesByTeam['Bez týmu'] = [];
+  const now = Date.now();
+  const last7d = now - 7 * 24 * 60 * 60 * 1000;
+
+  const byMktTeam = useMemo(() => {
+    const map = new Map<string, number>();
+    issues.forEach(issue => {
+      if (issue.mktTeam && issue.mktTeam.length > 0) {
+        issue.mktTeam.forEach(team => {
+          map.set(team, (map.get(team) || 0) + 1);
+        });
+      } else {
+        map.set('Bez týmu', (map.get('Bez týmu') || 0) + 1);
       }
-      issuesByTeam['Bez týmu'].push(issue);
-    }
-  });
-
-  // Funkce pro získání statusů pro tým - FIXNÍ POŘADÍ
-  const getTeamStatuses = (teamIssues: YouTrackIssue[]) => {
-    const byStatus: Record<string, number> = {};
-    
-    teamIssues.forEach(issue => {
-      const statusKey = getStatusDisplayName(issue.status);
-      byStatus[statusKey] = (byStatus[statusKey] || 0) + 1;
     });
-    
-    return STATUS_ORDER.map(status => {
-      return [status, byStatus[status] || 0] as [string, number];
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [issues]);
+
+  const byProjectCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    issues.forEach(issue => {
+      const key = issue.projectCategory || 'Bez category';
+      map.set(key, (map.get(key) || 0) + 1);
     });
-  };
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [issues]);
 
-  // Celkový počet všech issues
-  const totalIssues = issues.length;
+  const closedLast7d = useMemo(
+    () =>
+      issues
+        .filter(i => i.status === 'Done' && i.resolved && i.resolved >= last7d)
+        .sort((a, b) => (b.resolved || 0) - (a.resolved || 0)),
+    [issues, last7d],
+  );
 
-  // Seřazení týmů podle počtu issues (nejvíc → nejméně)
-  const sortedTeams = Object.entries(issuesByTeam).sort(([, a], [, b]) => b.length - a.length);
+  const activityByPeople = useMemo(() => {
+    const createdBy = new Map<string, number>();
+    const assignedTo = new Map<string, number>();
+    const touchedRecently = new Map<string, number>();
+
+    issues.forEach(issue => {
+      const owner = issue.owner || 'Unknown';
+      const assignee = issue.assignee || 'Unassigned';
+      createdBy.set(owner, (createdBy.get(owner) || 0) + 1);
+      assignedTo.set(assignee, (assignedTo.get(assignee) || 0) + 1);
+      if (issue.updated >= last7d) {
+        touchedRecently.set(owner, (touchedRecently.get(owner) || 0) + 1);
+      }
+    });
+
+    const keys = new Set<string>([
+      ...createdBy.keys(),
+      ...assignedTo.keys(),
+      ...touchedRecently.keys(),
+    ]);
+
+    return Array.from(keys)
+      .map(name => ({
+        name,
+        created: createdBy.get(name) || 0,
+        assigned: assignedTo.get(name) || 0,
+        recentUpdates: touchedRecently.get(name) || 0,
+        score:
+          (createdBy.get(name) || 0) * 1 +
+          (assignedTo.get(name) || 0) * 0.7 +
+          (touchedRecently.get(name) || 0) * 1.4,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  }, [issues, last7d]);
+
+  const maxTeam = byMktTeam[0]?.[1] || 1;
+  const maxCategory = byProjectCategory[0]?.[1] || 1;
 
   return (
-    <div className="statistics">
-      {/* Celkový počet - kolečko nahoře */}
-      <div className="total-circle-container">
-        <div className="total-circle">
-          <div className="circle-content">
-            <div className="circle-number">{totalIssues}</div>
-            <div className="circle-label">Celkem tasků</div>
-          </div>
-        </div>
+    <div className="statistics-overview">
+      <div className="stats-header">
+        <h2>Workload Overview</h2>
+        <div className="stats-subtitle">{issues.length} tasks in MKT</div>
       </div>
 
-      {/* Pipeline pro každý tým */}
-      <div className="teams-pipelines">
-        <h2>Pipeline podle týmů</h2>
-        
-        {sortedTeams.map(([teamName, teamIssues]) => {
-          const teamTotal = teamIssues.length;
-          const teamStatuses = getTeamStatuses(teamIssues);
-          
-          // Získáme jen statusy s issues pro výpočet celkové šířky
-          const statusesWithIssues = teamStatuses.filter(([, count]) => count > 0);
-          const totalPercentage = statusesWithIssues.reduce((sum, [, count]) => {
-            return sum + (count / teamTotal) * 100;
-          }, 0);
-
-          return (
-            <div key={teamName} className="team-pipeline-container">
-              <div className="team-pipeline-header">
-                <h3 className="team-pipeline-title">{teamName}</h3>
-                <span className="team-pipeline-count">{teamTotal} tasků</span>
+      <div className="stats-grid">
+        <div className="stats-card">
+          <h3>By MKT Team</h3>
+          <div className="stats-bars">
+            {byMktTeam.map(([label, count]) => (
+              <div key={label} className="stats-bar-row">
+                <span className="stats-label">{label}</span>
+                <div className="stats-bar-track">
+                  <div className="stats-bar-fill" style={{ width: `${(count / maxTeam) * 100}%` }} />
+                </div>
+                <span className="stats-value">{count}</span>
               </div>
+            ))}
+          </div>
+        </div>
 
-              <div className="pipeline-bar">
-                {teamStatuses.map(([status, count]) => {
-                  const percentage = teamTotal > 0 ? (count / teamTotal) * 100 : 0;
-                  const color = STATUS_COLORS[status] || '#95a5a6';
-                  
-                  // Pokud má status 0, nezobrazíme ho vůbec
-                  if (count === 0) {
-                    return null;
-                  }
-                  
-                  // Normalizujeme šířku, aby celkem dávalo 100%
-                  const normalizedWidth = totalPercentage > 0 ? (percentage / totalPercentage) * 100 : 0;
-                  
-                  return (
-                    <div
-                      key={status}
-                      className="pipeline-segment"
-                      style={{
-                        width: `${normalizedWidth}%`,
-                        backgroundColor: color,
-                      }}
-                      title={`${status}: ${count} (${percentage.toFixed(1)}%)`}
-                    >
-                      {normalizedWidth > 8 && (
-                        <div className="pipeline-segment-content">
-                          <span className="pipeline-count">{count}</span>
-                          <span className="pipeline-label">{status}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+        <div className="stats-card">
+          <h3>By Project Category</h3>
+          <div className="stats-bars">
+            {byProjectCategory.map(([label, count]) => (
+              <div key={label} className="stats-bar-row">
+                <span className="stats-label">{label}</span>
+                <div className="stats-bar-track">
+                  <div className="stats-bar-fill stats-bar-fill-alt" style={{ width: `${(count / maxCategory) * 100}%` }} />
+                </div>
+                <span className="stats-value">{count}</span>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Legenda pro tento tým - zobrazí VŠECHNY statusy */}
-              <div className="pipeline-legend">
-                {teamStatuses
-                  .filter(([, count]) => count > 0) // Zobrazíme jen statusy s issues
-                  .map(([status, count]) => {
-                    const percentage = (count / teamTotal) * 100;
-                    const color = STATUS_COLORS[status] || '#95a5a6';
-                    
-                    return (
-                      <div key={status} className="legend-item">
-                        <span 
-                          className="legend-color" 
-                          style={{ backgroundColor: color }}
-                        ></span>
-                        <span className="legend-text">
-                          {status}: <strong>{count}</strong> ({percentage.toFixed(0)}%)
-                        </span>
-                      </div>
-                    );
-                  })}
-              </div>
+        <div className="stats-card">
+          <h3>Tasks Closed (Last 7 Days)</h3>
+          <div className="stats-list">
+            {closedLast7d.length === 0 ? (
+              <div className="stats-empty">No tasks closed in the last 7 days.</div>
+            ) : (
+              closedLast7d.slice(0, 12).map(issue => (
+                <div key={issue.id} className="stats-list-item">
+                  <span className="stats-item-id">{issue.idReadable}</span>
+                  <span className="stats-item-summary">{issue.summary}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="stats-card">
+          <h3>Most Active People (MKT)</h3>
+          <div className="stats-people-table">
+            <div className="stats-people-head">
+              <span>Person</span>
+              <span>Created</span>
+              <span>Assigned</span>
+              <span>Recent upd.</span>
             </div>
-          );
-        })}
+            {activityByPeople.map(person => (
+              <div key={person.name} className="stats-people-row">
+                <span>{person.name}</span>
+                <span>{person.created}</span>
+                <span>{person.assigned}</span>
+                <span>{person.recentUpdates}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
