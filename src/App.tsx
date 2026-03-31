@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { YouTrackAPI } from './api/youtrack';
-import { YouTrackConfig } from './types';
+import { YouTrackConfig, YouTrackIssue } from './types';
 import { ConfigForm } from './components/ConfigForm';
 import { GanttChart } from './components/GanttChart';
 import { KanbanBoard } from './components/KanbanBoard';
