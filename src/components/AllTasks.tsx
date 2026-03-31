@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { YouTrackIssue } from '../types';
 import { formatDate, formatDateTime, isOverdue } from '../dateUtils';
-import { STATUS_ORDER, getStatusDisplayName, getStatusIcon } from '../statusMeta';
+import { getStatusIcon } from '../statusMeta';
 import { useConfig } from '../ConfigContext';
 
 interface AllTasksProps {
