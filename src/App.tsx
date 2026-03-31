@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { YouTrackAPI } from './api/youtrack';
-import { YouTrackConfig, YouTrackIssue } from './types';
+import { AllTasksFilterPreset, YouTrackConfig, YouTrackIssue } from './types';
 import { ConfigForm } from './components/ConfigForm';
 import { GanttChart } from './components/GanttChart';
 import { AllTasks } from './components/AllTasks';
@@ -30,7 +30,14 @@ function App() {
   const [dashboardPassword, setDashboardPassword] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const availableTags = ['WC2026', 'head_meeting', 'flashscore_youtube', 'marketing-after_deadline'];
+  const [allTasksPreset, setAllTasksPreset] = useState<AllTasksFilterPreset | null>(null);
+  const availableTags = useMemo(() => {
+    const set = new Set<string>();
+    allTasksIssues.forEach(issue => {
+      issue.tags?.forEach(tag => set.add(tag));
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'cs'));
+  }, [allTasksIssues]);
 
   useEffect(() => {
     const init = async () => {
@@ -174,6 +181,10 @@ function App() {
   };
 
   const wcTags = selectedTags.length > 0 ? selectedTags : ['WC2026'];
+  useEffect(() => {
+    if (availableTags.length === 0) return;
+    setSelectedTags(prev => prev.filter(tag => availableTags.includes(tag)));
+  }, [availableTags]);
   const wcTagLabel =
     selectedTags.length > 0 ? selectedTags.join(', ') : 'Žádný tag (všechny)';
   const wcSortedByLabel = selectedTags.length > 0 ? selectedTags.join(', ') : 'WC2026';
@@ -195,6 +206,11 @@ function App() {
     );
     return [...filtered, ...subtaskIssuesToAdd];
   }, [allTasksIssues, wcTags]);
+
+  const handleStatisticsDrilldown = (preset: AllTasksFilterPreset) => {
+    setAllTasksPreset(preset);
+    setActiveView('alltasks');
+  };
 
   if (!runtimeConfig) {
     return (
@@ -342,8 +358,16 @@ function App() {
               <GanttChart issues={wcIssues} variant="wc" sortedByLabel={wcSortedByLabel} />
             )}
             {activeView === 'ganttall' && <GanttChart issues={allTasksIssues} variant="all" />}
-            {activeView === 'statistics' && <Statistics issues={allTasksIssues} />}
-            {activeView === 'alltasks' && <AllTasks issues={allTasksIssues} />}
+            {activeView === 'statistics' && (
+              <Statistics issues={allTasksIssues} onOpenAllTasksFilter={handleStatisticsDrilldown} />
+            )}
+            {activeView === 'alltasks' && (
+              <AllTasks
+                issues={allTasksIssues}
+                presetFilters={allTasksPreset}
+                onPresetConsumed={() => setAllTasksPreset(null)}
+              />
+            )}
           </div>
         </>
       )}

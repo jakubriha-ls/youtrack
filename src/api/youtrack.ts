@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { YouTrackConfig, YouTrackIssue, SubTask, IssueRelation } from '../types';
+import { isDoneStatus } from '../statusMeta';
 
 export class YouTrackAPI {
   private client: AxiosInstance;
@@ -134,7 +135,7 @@ export class YouTrackAPI {
 
       if (subtasks.length > 0) {
         parsed.subtasks = subtasks;
-        const doneCount = subtasks.filter(st => st.status === 'Done').length;
+        const doneCount = subtasks.filter(st => isDoneStatus(st.status)).length;
         parsed.subtaskProgress = {
           total: subtasks.length,
           done: doneCount,
@@ -147,29 +148,39 @@ export class YouTrackAPI {
   }
 
   private async getIssuesByQuery(query: string): Promise<YouTrackIssue[]> {
-    const params = {
-      fields: this.issueFields,
-      query,
-      $top: 500,
-    };
     try {
-      const response = await this.client.get('/issues', { params });
-      const payload = response.data;
-      if (!Array.isArray(payload)) {
-        const upstreamError =
-          payload?.error_description ||
-          payload?.error ||
-          payload?.message;
-        const payloadPreview =
-          typeof payload === 'string'
-            ? payload.slice(0, 220)
-            : JSON.stringify(payload)?.slice(0, 220);
-        throw new Error(
-          upstreamError ||
-            `Unexpected response from YouTrack API. Payload: ${payloadPreview || 'n/a'}`,
-        );
+      const pageSize = 200;
+      let skip = 0;
+      const allIssues: YouTrackIssue[] = [];
+      while (true) {
+        const response = await this.client.get('/issues', {
+          params: {
+            fields: this.issueFields,
+            query,
+            $top: pageSize,
+            $skip: skip,
+          },
+        });
+        const payload = response.data;
+        if (!Array.isArray(payload)) {
+          const upstreamError =
+            payload?.error_description ||
+            payload?.error ||
+            payload?.message;
+          const payloadPreview =
+            typeof payload === 'string'
+              ? payload.slice(0, 220)
+              : JSON.stringify(payload)?.slice(0, 220);
+          throw new Error(
+            upstreamError ||
+              `Unexpected response from YouTrack API. Payload: ${payloadPreview || 'n/a'}`,
+          );
+        }
+        allIssues.push(...payload.map((issue: any) => this.parseCustomFields(issue)));
+        if (payload.length < pageSize) break;
+        skip += pageSize;
       }
-      return payload.map((issue: any) => this.parseCustomFields(issue));
+      return allIssues;
     } catch (error: any) {
       console.error('Chyba při načítání issues:', error);
       const responseData = error?.response?.data;

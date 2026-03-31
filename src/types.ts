@@ -64,3 +64,13 @@ export interface MarketingStats {
   byStatus: Record<string, number>;
   byTeam: Record<string, number>;
 }
+
+export interface AllTasksFilterPreset {
+  searchQuery?: string;
+  teams?: string[];
+  assignees?: string[];
+  statuses?: string[];
+  projectCategories?: string[];
+  showOnlyOverdue?: boolean;
+  showDueToday?: boolean;
+}

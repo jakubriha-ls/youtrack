@@ -2981,6 +2981,19 @@ body.light-theme .task-row.row-overdue:hover td:nth-child(n + 3) {
   gap: 8px;
 }
 
+.stats-action-row {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stats-action-row:hover {
+  filter: brightness(1.05);
+}
+
 .stats-label {
   color: var(--text);
   overflow: hidden;
@@ -3024,6 +3037,14 @@ body.light-theme .task-row.row-overdue:hover td:nth-child(n + 3) {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 8px;
+}
+
+.stats-list-item-action {
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .stats-item-id {

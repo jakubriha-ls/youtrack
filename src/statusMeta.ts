@@ -42,6 +42,9 @@ export const getStatusDisplayName = (status?: string | null): string => {
   return status;
 };
 
+export const isDoneStatus = (status?: string | null): boolean =>
+  getStatusDisplayName(status) === 'Done';
+
 export const getStatusIcon = (status?: string) => {
   switch (status) {
     case 'In-Progress':

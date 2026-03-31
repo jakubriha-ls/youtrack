@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
-import { YouTrackIssue } from '../types';
+import { AllTasksFilterPreset, YouTrackIssue } from '../types';
+import { isDoneStatus } from '../statusMeta';
 
 interface StatisticsProps {
   issues: YouTrackIssue[];
+  onOpenAllTasksFilter?: (preset: AllTasksFilterPreset) => void;
 }
 
-export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
+export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFilter }) => {
   const now = Date.now();
   const last7d = now - 7 * 24 * 60 * 60 * 1000;
 
@@ -35,7 +37,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
   const closedLast7d = useMemo(
     () =>
       issues
-        .filter(i => i.status === 'Done' && i.resolved && i.resolved >= last7d)
+        .filter(i => isDoneStatus(i.status) && i.resolved && i.resolved >= last7d)
         .sort((a, b) => (b.resolved || 0) - (a.resolved || 0)),
     [issues, last7d],
   );
@@ -78,6 +80,15 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
 
   const maxTeam = byMktTeam[0]?.[1] || 1;
   const maxCategory = byProjectCategory[0]?.[1] || 1;
+  const dataQuality = useMemo(
+    () => ({
+      missingAssignee: issues.filter(i => !i.assignee).length,
+      missingTeam: issues.filter(i => !i.mktTeam || i.mktTeam.length === 0).length,
+      missingStartDate: issues.filter(i => !i.startDate).length,
+      missingDueDate: issues.filter(i => !i.dueDate).length,
+    }),
+    [issues],
+  );
 
   return (
     <div className="statistics-overview">
@@ -91,13 +102,18 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
           <h3>By MKT Team</h3>
           <div className="stats-bars">
             {byMktTeam.map(([label, count]) => (
-              <div key={label} className="stats-bar-row">
+              <button
+                key={label}
+                className="stats-bar-row stats-action-row"
+                type="button"
+                onClick={() => onOpenAllTasksFilter?.({ teams: [label] })}
+              >
                 <span className="stats-label">{label}</span>
                 <div className="stats-bar-track">
                   <div className="stats-bar-fill" style={{ width: `${(count / maxTeam) * 100}%` }} />
                 </div>
                 <span className="stats-value">{count}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -106,13 +122,18 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
           <h3>By Project Category</h3>
           <div className="stats-bars">
             {byProjectCategory.map(([label, count]) => (
-              <div key={label} className="stats-bar-row">
+              <button
+                key={label}
+                className="stats-bar-row stats-action-row"
+                type="button"
+                onClick={() => onOpenAllTasksFilter?.({ projectCategories: [label] })}
+              >
                 <span className="stats-label">{label}</span>
                 <div className="stats-bar-track">
                   <div className="stats-bar-fill stats-bar-fill-alt" style={{ width: `${(count / maxCategory) * 100}%` }} />
                 </div>
                 <span className="stats-value">{count}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -124,10 +145,15 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
               <div className="stats-empty">No tasks closed in the last 7 days.</div>
             ) : (
               closedLast7d.slice(0, 12).map(issue => (
-                <div key={issue.id} className="stats-list-item">
+                <button
+                  key={issue.id}
+                  className="stats-list-item stats-list-item-action"
+                  type="button"
+                  onClick={() => onOpenAllTasksFilter?.({ searchQuery: issue.idReadable })}
+                >
                   <span className="stats-item-id">{issue.idReadable}</span>
                   <span className="stats-item-summary">{issue.summary}</span>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -143,13 +169,40 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues }) => {
               <span>Recent upd.</span>
             </div>
             {activityByPeople.map(person => (
-              <div key={person.name} className="stats-people-row">
+              <button
+                key={person.name}
+                className="stats-people-row stats-action-row"
+                type="button"
+                onClick={() => onOpenAllTasksFilter?.({ assignees: [person.name] })}
+              >
                 <span>{person.name}</span>
                 <span>{person.created}</span>
                 <span>{person.assigned}</span>
                 <span>{person.recentUpdates}</span>
-              </div>
+              </button>
             ))}
+          </div>
+        </div>
+
+        <div className="stats-card">
+          <h3>Data Quality</h3>
+          <div className="stats-list">
+            <div className="stats-list-item">
+              <span className="stats-item-id">Assignee</span>
+              <span className="stats-item-summary">Missing: {dataQuality.missingAssignee}</span>
+            </div>
+            <div className="stats-list-item">
+              <span className="stats-item-id">MKT Team</span>
+              <span className="stats-item-summary">Missing: {dataQuality.missingTeam}</span>
+            </div>
+            <div className="stats-list-item">
+              <span className="stats-item-id">Start Date</span>
+              <span className="stats-item-summary">Missing: {dataQuality.missingStartDate}</span>
+            </div>
+            <div className="stats-list-item">
+              <span className="stats-item-id">Due Date</span>
+              <span className="stats-item-summary">Missing: {dataQuality.missingDueDate}</span>
+            </div>
           </div>
         </div>
       </div>

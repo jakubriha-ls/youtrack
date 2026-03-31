@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { YouTrackIssue } from '../types';
 import { formatDate, isOverdue } from '../dateUtils';
-import { STATUS_ORDER, getStatusDisplayName } from '../statusMeta';
+import { STATUS_ORDER, getStatusDisplayName, isDoneStatus } from '../statusMeta';
 import { useConfig } from '../ConfigContext';
 
 interface KanbanBoardProps {
@@ -73,11 +73,6 @@ const sortedColumns = useMemo(() => {
     return '';
   };
 
-// Zjistí, jestli je issue Done
-const isDone = (status?: string) => {
-  return status === 'Done';
-};
-
   const handleCardClick = (issueId: string) => {
     if (youtrackUrl) {
       const issueUrl = `${youtrackUrl}/issue/${issueId}`;
@@ -101,7 +96,7 @@ const isDone = (status?: string) => {
               {statusIssues.map(issue => (
                 <div 
   key={issue.id} 
-  className={`kanban-card ${isOverdue(issue.dueDate) ? 'card-overdue' : ''} ${isDone(issue.status) ? 'card-done' : ''}`}
+  className={`kanban-card ${isOverdue(issue.dueDate) ? 'card-overdue' : ''} ${isDoneStatus(issue.status) ? 'card-done' : ''}`}
   onClick={() => handleCardClick(issue.idReadable)}
   title="Klikni pro otevření v YouTrack"
 >

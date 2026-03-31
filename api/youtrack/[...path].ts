@@ -9,6 +9,14 @@ const pickHeader = (value: string | string[] | undefined): string | undefined =>
 
 const toBaseUrl = (raw: string): string => raw.replace(/\/+$/, '');
 
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 120;
+
+type RateBucket = { count: number; resetAt: number };
+const globalRateState = globalThis as unknown as { __ytProxyRate?: Map<string, RateBucket> };
+const rateBuckets = globalRateState.__ytProxyRate ?? new Map<string, RateBucket>();
+globalRateState.__ytProxyRate = rateBuckets;
+
 const buildTarget = (baseUrl: string, pathParts: string[], query: string): string =>
   `${baseUrl}/api/${pathParts.join('/')}${query ? `?${query}` : ''}`;
 
@@ -28,6 +36,23 @@ const getPathParts = (req: any): string[] => {
 };
 
 export default async function handler(req: any, res: any): Promise<void> {
+  const ip =
+    pickHeader(req.headers['x-forwarded-for'])?.split(',')[0]?.trim() ||
+    pickHeader(req.headers['x-real-ip']) ||
+    'unknown';
+  const now = Date.now();
+  const bucket = rateBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  } else if (bucket.count >= RATE_LIMIT_MAX) {
+    const retryIn = Math.ceil((bucket.resetAt - now) / 1000);
+    res.setHeader('retry-after', String(Math.max(retryIn, 1)));
+    res.status(429).json({ error: 'Too many requests.' });
+    return;
+  } else {
+    bucket.count += 1;
+  }
+
   const requiredDashboardPassword = process.env.DASHBOARD_PASSWORD;
   if (requiredDashboardPassword) {
     const suppliedDashboardPassword = pickHeader(req.headers['x-dashboard-password']);
@@ -37,10 +62,13 @@ export default async function handler(req: any, res: any): Promise<void> {
     }
   }
 
-  const baseUrl =
-    process.env.YOUTRACK_BASE_URL || pickHeader(req.headers['x-youtrack-base-url']);
-  const token =
-    process.env.YOUTRACK_TOKEN || pickHeader(req.headers['x-youtrack-token']);
+  const isProduction = process.env.NODE_ENV === 'production';
+  const envBaseUrl = process.env.YOUTRACK_BASE_URL;
+  const headerBaseUrl = pickHeader(req.headers['x-youtrack-base-url']);
+  const baseUrl = envBaseUrl || (!isProduction ? headerBaseUrl : undefined);
+  const envToken = process.env.YOUTRACK_TOKEN;
+  const headerToken = pickHeader(req.headers['x-youtrack-token']);
+  const token = envToken || (!isProduction ? headerToken : undefined);
 
   if (!baseUrl || !token) {
     res.status(400).json({ error: 'Missing YouTrack credentials.' });

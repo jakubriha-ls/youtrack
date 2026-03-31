@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { YouTrackIssue } from '../types';
 import { formatDate, isOverdue } from '../dateUtils';
-import { STATUS_COLORS, STATUS_ORDER, getStatusDisplayName } from '../statusMeta';
+import { STATUS_COLORS, STATUS_ORDER, getStatusDisplayName, isDoneStatus } from '../statusMeta';
 import { useConfig } from '../ConfigContext';
 import { getReadableTextColor } from '../colorUtils';
 
@@ -246,7 +246,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       if (!isAllTasksVariant && issue.summary.toLowerCase().includes('master task')) {
         return false;
       }
-      if (!showClosedTasks && getStatusDisplayName(issue.status) === 'Done') {
+      if (!showClosedTasks && isDoneStatus(issue.status)) {
         return false;
       }
       if (toLocalMidnight(issue.startDate) > CLAMP_END) return false;
@@ -919,8 +919,8 @@ export const GanttChart: React.FC<GanttChartProps> = ({
           {orderedItems.map(({ issue, relationType, hasChildren }) => {
             const left = getPosition(issue.startDate!);
             const width = getWidth(issue.startDate!, issue.dueDate!);
-            const overdue = isOverdue(issue.dueDate) && issue.status !== 'Done';
-            const isDone = issue.status === 'Done';
+            const overdue = isOverdue(issue.dueDate) && !isDoneStatus(issue.status);
+            const isDone = isDoneStatus(issue.status);
             const barBg = getStatusColor(issue.status);
             const { color: barTextColor, isLight } = getReadableTextColor(barBg);
             const isExpanded = expandedParentIds.includes(issue.id);

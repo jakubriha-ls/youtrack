@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { YouTrackIssue } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AllTasksFilterPreset, YouTrackIssue } from '../types';
 import { formatDate, formatDateTime, isOverdue } from '../dateUtils';
-import { STATUS_ORDER, getStatusDisplayName, getStatusIcon } from '../statusMeta';
+import { STATUS_ORDER, getStatusDisplayName, getStatusIcon, isDoneStatus } from '../statusMeta';
 import { useConfig } from '../ConfigContext';
 
 interface AllTasksProps {
   issues: YouTrackIssue[];
+  presetFilters?: AllTasksFilterPreset | null;
+  onPresetConsumed?: () => void;
 }
 
 type SortField =
@@ -20,7 +22,7 @@ type SortField =
   | 'updated';
 type SortDirection = 'asc' | 'desc';
 
-export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
+export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPresetConsumed }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
@@ -32,8 +34,19 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
   const [sortField, setSortField] = useState<SortField>('updated');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<string>('');
   const { config } = useConfig();
+
+  useEffect(() => {
+    if (!presetFilters) return;
+    setSearchQuery(presetFilters.searchQuery || '');
+    setSelectedTeams(presetFilters.teams || []);
+    setSelectedAssignees(presetFilters.assignees || []);
+    setSelectedStatuses(presetFilters.statuses || STATUS_ORDER);
+    setSelectedProjectCategories(presetFilters.projectCategories || []);
+    setShowOnlyOverdue(Boolean(presetFilters.showOnlyOverdue));
+    setShowDueToday(Boolean(presetFilters.showDueToday));
+    onPresetConsumed?.();
+  }, [presetFilters, onPresetConsumed]);
 
   const teams = useMemo(() => {
     const teamSet = new Set<string>();
@@ -148,7 +161,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
       }
 
       if (showOnlyOverdue) {
-        const isDone = issue.status === 'Done';
+        const isDone = isDoneStatus(issue.status);
         if (isDone || !isOverdue(issue.dueDate)) return false;
       }
 
@@ -261,11 +274,12 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     }
   };
 
-  const handleBulkAction = () => {
-    if (!bulkAction || selectedIssues.size === 0) return;
-    console.info(`Neimplementovaná bulk akce "${bulkAction}" na ${selectedIssues.size} issues.`);
-    setSelectedIssues(new Set());
-    setBulkAction('');
+  const openSelectedInYouTrack = () => {
+    if (selectedIssues.size === 0) return;
+    const selectedRows = sortedIssues.filter(issue => selectedIssues.has(issue.id));
+    selectedRows.forEach(issue => {
+      window.open(`${config.baseUrl}/issue/${issue.idReadable}`, '_blank');
+    });
   };
 
   const getSortIcon = (field: SortField) => {
@@ -452,28 +466,13 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
         {selectedIssues.size > 0 && (
           <div className="bulk-actions-bar">
             <span className="selected-count">{selectedIssues.size} vybraných</span>
-            
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="bulk-action-select"
-            >
-              <option value="">Vyberte akci...</option>
-              <option value="change-status">Změnit status</option>
-              <option value="change-assignee">Změnit assignee</option>
-              <option value="set-due-date">Nastavit due date</option>
-              <option value="add-tag">Přidat tag</option>
-            </select>
-
-            <button 
-              onClick={handleBulkAction}
-              disabled={!bulkAction}
+            <button
+              onClick={openSelectedInYouTrack}
               className="btn-bulk-apply"
             >
-              Aplikovat
+              Otevřít vybrané v YouTrack
             </button>
-
-            <button 
+            <button
               onClick={() => setSelectedIssues(new Set())}
               className="btn-bulk-cancel"
             >
@@ -526,7 +525,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
           </thead>
           <tbody>
             {sortedIssues.map((issue) => {
-              const isDone = issue.status === 'Done';
+              const isDone = isDoneStatus(issue.status);
               const overdueClass = isOverdue(issue.dueDate) ? 'row-overdue' : '';
               const doneClass = isDone ? 'row-done' : '';
               const expandedClass = expandedIssueId === issue.id ? 'row-expanded' : '';
