@@ -528,6 +528,14 @@ summary:focus-visible {
   font-size: 18px;
 }
 
+.gantt-sorted-note {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .gantt-container {
   margin-top: 20px;
   overflow-x: auto;
@@ -596,6 +604,13 @@ summary:focus-visible {
   font-size: 12px;
   cursor: pointer;
   user-select: none;
+}
+
+.tag-filter-summary {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #7c2d12;
+  font-weight: 600;
 }
 
 .gantt-multiselect-summary::-webkit-details-marker {
@@ -2531,6 +2546,12 @@ body.light-theme .btn-refresh {
 
 body.light-theme .btn-refresh:hover:not(:disabled) {
   filter: brightness(0.98);
+}
+
+body.light-theme .tag-filter-summary {
+  background: #fffbeb;
+  border-color: #fbbf24;
+  color: #92400e;
 }
 
 body.light-theme .gantt-container,

@@ -3,17 +3,18 @@ import { YouTrackIssue } from '../types';
 import { formatDate, isOverdue } from '../dateUtils';
 import { STATUS_COLORS, STATUS_ORDER, getStatusDisplayName } from '../statusMeta';
 import { useConfig } from '../ConfigContext';
-import wc2026Logo from '../assets/wc2026-logo.svg';
 import { getReadableTextColor } from '../colorUtils';
 
 interface GanttChartProps {
   issues: YouTrackIssue[];
   variant?: 'wc' | 'all';
+  sortedByLabel?: string;
 }
 
 export const GanttChart: React.FC<GanttChartProps> = ({
   issues,
   variant = 'wc',
+  sortedByLabel = 'WC2026',
 }) => {
   const { config } = useConfig();
   const isAllTasksVariant = variant === 'all';
@@ -559,13 +560,13 @@ export const GanttChart: React.FC<GanttChartProps> = ({
           <h2 className="gantt-worldcup-title">Marketing Tasks</h2>
         ) : (
           <div className="gantt-worldcup-heading">
-            <img className="gantt-worldcup-logo" src={wc2026Logo} alt="FIFA World Cup 2026" />
             <div className="gantt-worldcup-text">
               <h2 className="gantt-worldcup-title">Road to World Cup 2026</h2>
               <div className="gantt-host-flags" aria-label="Host countries">
                 <span className="gantt-flag" title="USA">🇺🇸</span>
                 <span className="gantt-flag" title="Mexico">🇲🇽</span>
                 <span className="gantt-flag" title="Canada">🇨🇦</span>
+                <span className="gantt-sorted-note">Sorted by tag {sortedByLabel}</span>
               </div>
             </div>
           </div>
@@ -583,13 +584,13 @@ export const GanttChart: React.FC<GanttChartProps> = ({
         <h2 className="gantt-worldcup-title">Marketing Tasks</h2>
       ) : (
         <div className="gantt-worldcup-heading">
-          <img className="gantt-worldcup-logo" src={wc2026Logo} alt="FIFA World Cup 2026" />
           <div className="gantt-worldcup-text">
             <h2 className="gantt-worldcup-title">Road to World Cup 2026</h2>
             <div className="gantt-host-flags" aria-label="Host countries">
               <span className="gantt-flag" title="USA">🇺🇸</span>
               <span className="gantt-flag" title="Mexico">🇲🇽</span>
               <span className="gantt-flag" title="Canada">🇨🇦</span>
+              <span className="gantt-sorted-note">Sorted by tag {sortedByLabel}</span>
             </div>
           </div>
         </div>

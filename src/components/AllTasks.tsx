@@ -22,9 +22,8 @@ type SortDirection = 'asc' | 'desc';
 
 export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTeam, setSelectedTeam] = useState<string>('all');
-  const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(STATUS_ORDER);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [selectedProjectCategories, setSelectedProjectCategories] = useState<string[]>([]);
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false);
   const [showDueToday, setShowDueToday] = useState(false);
@@ -42,7 +41,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
         issue.mktTeam.forEach(team => teamSet.add(team));
       }
     });
-    return ['all', ...Array.from(teamSet).sort()];
+    return Array.from(teamSet).sort((a, b) => a.localeCompare(b, 'cs'));
   }, [issues]);
 
   const assignees = useMemo(() => {
@@ -50,7 +49,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     issues.forEach(issue => {
       if (issue.assignee) assigneeSet.add(issue.assignee);
     });
-    return ['all', ...Array.from(assigneeSet).sort((a, b) => a.localeCompare(b, 'cs'))];
+    return Array.from(assigneeSet).sort((a, b) => a.localeCompare(b, 'cs'));
   }, [issues]);
 
   const projectCategories = useMemo(() => {
@@ -78,19 +77,10 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     );
   };
 
-  const toggleStatus = (status: string) => {
-    setSelectedStatuses(prev =>
-      prev.includes(status)
-        ? prev.filter(s => s !== status)
-        : [...prev, status],
-    );
-  };
-
   const resetFilters = () => {
     setSearchQuery('');
-    setSelectedTeam('all');
-    setSelectedAssignee('all');
-    setSelectedStatuses(STATUS_ORDER);
+    setSelectedTeams([]);
+    setSelectedAssignees([]);
     setSelectedProjectCategories([]);
     setShowOnlyOverdue(false);
     setShowDueToday(false);
@@ -99,18 +89,16 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (searchQuery.trim()) count += 1;
-    if (selectedTeam !== 'all') count += 1;
-    if (selectedAssignee !== 'all') count += 1;
-    if (selectedStatuses.length !== STATUS_ORDER.length) count += 1;
+    if (selectedTeams.length > 0) count += 1;
+    if (selectedAssignees.length > 0) count += 1;
     if (selectedProjectCategories.length > 0) count += 1;
     if (showOnlyOverdue) count += 1;
     if (showDueToday) count += 1;
     return count;
   }, [
     searchQuery,
-    selectedTeam,
-    selectedAssignee,
-    selectedStatuses,
+    selectedTeams,
+    selectedAssignees,
     selectedProjectCategories,
     showOnlyOverdue,
     showDueToday,
@@ -127,18 +115,16 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
       
       if (!matchesSearch) return false;
 
-      if (selectedTeam !== 'all') {
-        const hasTeam = issue.mktTeam?.includes(selectedTeam);
-        if (!hasTeam) return false;
-      }
-
-      if (selectedAssignee !== 'all' && issue.assignee !== selectedAssignee) {
+      if (
+        selectedTeams.length > 0 &&
+        (!issue.mktTeam || !issue.mktTeam.some(team => selectedTeams.includes(team)))
+      ) {
         return false;
       }
 
       if (
-        selectedStatuses.length > 0 &&
-        !selectedStatuses.includes(getStatusDisplayName(issue.status))
+        selectedAssignees.length > 0 &&
+        (!issue.assignee || !selectedAssignees.includes(issue.assignee))
       ) {
         return false;
       }
@@ -164,9 +150,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
   }, [
     issues,
     searchQuery,
-    selectedTeam,
-    selectedAssignee,
-    selectedStatuses,
+    selectedTeams,
+    selectedAssignees,
     selectedProjectCategories,
     showOnlyOverdue,
     showDueToday,
@@ -301,52 +286,68 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
 
-          <select
-            className="team-filter"
-            value={selectedTeam}
-            onChange={(e) => setSelectedTeam(e.target.value)}
-          >
-            <option value="all">Všechny týmy</option>
-            {teams.filter(t => t !== 'all').map(team => (
-              <option key={team} value={team}>{team}</option>
-            ))}
-          </select>
-
-          <select
-            className="team-filter"
-            value={selectedAssignee}
-            onChange={(e) => setSelectedAssignee(e.target.value)}
-          >
-            <option value="all">Všichni assignees</option>
-            {assignees.filter(a => a !== 'all').map(assignee => (
-              <option key={assignee} value={assignee}>{assignee}</option>
-            ))}
-          </select>
-
-          <div className="gantt-filter gantt-filter-multiselect all-tasks-status-filter">
-            <label className="gantt-filter-label">Status:</label>
+          <div className="gantt-filter gantt-filter-multiselect">
+            <label className="gantt-filter-label">Assignee:</label>
             <details className="gantt-multiselect">
               <summary className="gantt-multiselect-summary">
-                {selectedStatuses.length > 0
-                  ? `${selectedStatuses.length} vybráno`
-                  : 'Všechny'}
+                {selectedAssignees.length > 0 ? `${selectedAssignees.length} vybráno` : 'Všichni'}
               </summary>
               <div className="gantt-multiselect-menu">
                 <button
                   type="button"
                   className="gantt-multiselect-clear"
-                  onClick={() => setSelectedStatuses(STATUS_ORDER)}
+                  onClick={() => setSelectedAssignees([])}
+                >
+                  Všichni
+                </button>
+                {assignees.map(assignee => (
+                  <label key={assignee} className="gantt-multiselect-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedAssignees.includes(assignee)}
+                      onChange={() =>
+                        setSelectedAssignees(prev =>
+                          prev.includes(assignee)
+                            ? prev.filter(a => a !== assignee)
+                            : [...prev, assignee],
+                        )
+                      }
+                    />
+                    <span>{assignee}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+
+          <div className="gantt-filter gantt-filter-multiselect">
+            <label className="gantt-filter-label">MKT Team:</label>
+            <details className="gantt-multiselect">
+              <summary className="gantt-multiselect-summary">
+                {selectedTeams.length > 0 ? `${selectedTeams.length} vybráno` : 'Všechny'}
+              </summary>
+              <div className="gantt-multiselect-menu">
+                <button
+                  type="button"
+                  className="gantt-multiselect-clear"
+                  onClick={() => setSelectedTeams([])}
                 >
                   Všechny
                 </button>
-                {STATUS_ORDER.map(status => (
-                  <label key={status} className="gantt-multiselect-option">
+                {teams.map(team => (
+                  <label key={team} className="gantt-multiselect-option">
                     <input
                       type="checkbox"
-                      checked={selectedStatuses.includes(status)}
-                      onChange={() => toggleStatus(status)}
+                      checked={selectedTeams.includes(team)}
+                      onChange={() =>
+                        setSelectedTeams(prev =>
+                          prev.includes(team)
+                            ? prev.filter(t => t !== team)
+                            : [...prev, team],
+                        )
+                      }
                     />
-                    <span>{status}</span>
+                    <span>{team}</span>
                   </label>
                 ))}
               </div>

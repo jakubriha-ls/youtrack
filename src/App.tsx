@@ -175,7 +175,8 @@ function App() {
 
   const wcTags = selectedTags.length > 0 ? selectedTags : ['WC2026'];
   const wcTagLabel =
-    selectedTags.length > 0 ? selectedTags.join(', ') : 'WC2026 (default)';
+    selectedTags.length > 0 ? selectedTags.join(', ') : 'Žádný tag (všechny)';
+  const wcSortedByLabel = selectedTags.length > 0 ? selectedTags.join(', ') : 'WC2026';
 
   const wcIssues = useMemo(() => {
     const filtered = allTasksIssues.filter(issue =>
@@ -249,13 +250,13 @@ function App() {
           <h1 className="app-title">Marketing Dashboard</h1>
           <div className="connected-info">
             ✓ Připojeno k: {config.baseUrl}
-            {!loading && <span> • {wcIssues.length} issues načteno • Tagy: {wcTagLabel}</span>}
+            {!loading && <span> • {allTasksIssues.length} issues načteno • Tagy: {wcTagLabel}</span>}
           </div>
         </div>
         <div className="header-actions">
           <details className="gantt-multiselect">
-            <summary className="gantt-multiselect-summary">
-              {selectedTags.length > 0 ? `${selectedTags.length} tagy` : 'Žádný tag (default WC2026)'}
+            <summary className="gantt-multiselect-summary tag-filter-summary">
+              {selectedTags.length > 0 ? `${selectedTags.length} tagy` : 'Žádný tag'}
             </summary>
             <div className="gantt-multiselect-menu">
               <button
@@ -337,7 +338,9 @@ function App() {
 </div>
 
           <div className="view-content">
-            {activeView === 'gantt' && <GanttChart issues={wcIssues} variant="wc" />}
+            {activeView === 'gantt' && (
+              <GanttChart issues={wcIssues} variant="wc" sortedByLabel={wcSortedByLabel} />
+            )}
             {activeView === 'ganttall' && <GanttChart issues={allTasksIssues} variant="all" />}
             {activeView === 'kanban' && <KanbanBoard issues={wcIssues} />}
             {activeView === 'alltasks' && <AllTasks issues={allTasksIssues} />}
