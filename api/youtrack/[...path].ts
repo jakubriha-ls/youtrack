@@ -9,6 +9,9 @@ const pickHeader = (value: string | string[] | undefined): string | undefined =>
 
 const toBaseUrl = (raw: string): string => raw.replace(/\/+$/, '');
 
+const buildTarget = (baseUrl: string, pathParts: string[], query: string): string =>
+  `${baseUrl}/api/${pathParts.join('/')}${query ? `?${query}` : ''}`;
+
 export default async function handler(req: any, res: any): Promise<void> {
   const requiredDashboardPassword = process.env.DASHBOARD_PASSWORD;
   if (requiredDashboardPassword) {
@@ -48,10 +51,11 @@ export default async function handler(req: any, res: any): Promise<void> {
   });
 
   const query = searchParams.toString();
-  const target = `${toBaseUrl(baseUrl)}/api/${pathParts.join('/')}${query ? `?${query}` : ''}`;
+  const normalizedBase = toBaseUrl(baseUrl);
+  const target = buildTarget(normalizedBase, pathParts, query);
 
   try {
-    const response = await fetch(target, {
+    const requestInit = {
       method: req.method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -59,7 +63,15 @@ export default async function handler(req: any, res: any): Promise<void> {
         'Content-Type': 'application/json',
       },
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body ?? {}),
-    });
+    };
+
+    let response = await fetch(target, requestInit);
+
+    // Some YouTrack setups are hosted under /youtrack, not root.
+    if (response.status === 404 && !normalizedBase.endsWith('/youtrack')) {
+      const fallbackTarget = buildTarget(`${normalizedBase}/youtrack`, pathParts, query);
+      response = await fetch(fallbackTarget, requestInit);
+    }
 
     const text = await response.text();
     const contentType = response.headers.get('content-type') || 'application/json';
