@@ -11,6 +11,13 @@ export interface SubTask {
   relationType?: 'subtask' | 'related';
 }
 
+export interface IssueRelation {
+  id: string;
+  idReadable: string;
+  status?: string;
+  relationType: 'subtask' | 'related' | 'parent';
+}
+
 export interface SubTaskProgress {
   total: number;
   done: number;
@@ -33,6 +40,7 @@ export interface YouTrackIssue {
   customFields?: CustomField[];
   // Subtasky
   subtasks?: SubTask[];
+  relations?: IssueRelation[];
   subtaskProgress?: SubTaskProgress;
   // Pro snadnější přístup
   status?: string;

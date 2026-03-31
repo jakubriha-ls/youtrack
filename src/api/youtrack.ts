@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { YouTrackConfig, YouTrackIssue, SubTask } from '../types';
+import { YouTrackConfig, YouTrackIssue, SubTask, IssueRelation } from '../types';
 
 export class YouTrackAPI {
   private client: AxiosInstance;
@@ -75,12 +75,14 @@ export class YouTrackAPI {
     // Parsování subtasků a souvisejících tasků
     if (issue.links && Array.isArray(issue.links)) {
       const subtasks: SubTask[] = [];
+      const relations: IssueRelation[] = [];
       issue.links.forEach((link: any) => {
         const linkName = link.linkType?.name;
         const direction = link.direction as 'INWARD' | 'OUTWARD' | undefined;
 
         let relationType: SubTask['relationType'] | null = null;
         let treatAsChild = false;
+        let relationForDetail: IssueRelation['relationType'] | null = null;
 
         if (linkName === 'Subtask' || linkName === 'parent for') {
           relationType = 'subtask';
@@ -88,27 +90,47 @@ export class YouTrackAPI {
             (linkName === 'Subtask' && direction === 'OUTWARD') ||
             // YouTrack "parent for" points from parent -> child when direction is OUTWARD.
             (linkName === 'parent for' && direction === 'OUTWARD');
+          relationForDetail = treatAsChild ? 'subtask' : 'parent';
         } else if (linkName === 'Relates' || linkName === 'relates to') {
           relationType = 'related';
           treatAsChild = true;
+          relationForDetail = 'related';
         }
 
-        if (!relationType || !treatAsChild) {
+        if (!relationType && !relationForDetail) {
           return;
         }
 
         if (link.issues && Array.isArray(link.issues)) {
           link.issues.forEach((subIssue: any) => {
             const status = subIssue.customFields?.find((f: any) => f.name === 'Status')?.value?.name;
-            subtasks.push({
-              id: subIssue.id,
-              idReadable: subIssue.idReadable,
-              status,
-              relationType,
-            });
+            if (relationForDetail) {
+              relations.push({
+                id: subIssue.id,
+                idReadable: subIssue.idReadable,
+                status,
+                relationType: relationForDetail,
+              });
+            }
+            if (treatAsChild && relationType) {
+              subtasks.push({
+                id: subIssue.id,
+                idReadable: subIssue.idReadable,
+                status,
+                relationType,
+              });
+            }
           });
         }
       });
+
+      if (relations.length > 0) {
+        const unique = new Map<string, IssueRelation>();
+        relations.forEach(rel => {
+          unique.set(`${rel.id}:${rel.relationType}`, rel);
+        });
+        parsed.relations = Array.from(unique.values());
+      }
 
       if (subtasks.length > 0) {
         parsed.subtasks = subtasks;

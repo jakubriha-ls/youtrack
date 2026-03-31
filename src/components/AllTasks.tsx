@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { YouTrackIssue } from '../types';
 import { formatDate, formatDateTime, isOverdue } from '../dateUtils';
-import { getStatusIcon } from '../statusMeta';
+import { STATUS_ORDER, getStatusDisplayName, getStatusIcon } from '../statusMeta';
 import { useConfig } from '../ConfigContext';
 
 interface AllTasksProps {
@@ -24,12 +24,13 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(STATUS_ORDER);
   const [selectedProjectCategories, setSelectedProjectCategories] = useState<string[]>([]);
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false);
   const [showDueToday, setShowDueToday] = useState(false);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<SortField>('id');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>('updated');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string>('');
   const { config } = useConfig();
@@ -81,6 +82,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     setSearchQuery('');
     setSelectedTeams([]);
     setSelectedAssignees([]);
+    setSelectedStatuses(STATUS_ORDER);
     setSelectedProjectCategories([]);
     setShowOnlyOverdue(false);
     setShowDueToday(false);
@@ -91,6 +93,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     if (searchQuery.trim()) count += 1;
     if (selectedTeams.length > 0) count += 1;
     if (selectedAssignees.length > 0) count += 1;
+    if (selectedStatuses.length !== STATUS_ORDER.length) count += 1;
     if (selectedProjectCategories.length > 0) count += 1;
     if (showOnlyOverdue) count += 1;
     if (showDueToday) count += 1;
@@ -99,6 +102,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     searchQuery,
     selectedTeams,
     selectedAssignees,
+    selectedStatuses,
     selectedProjectCategories,
     showOnlyOverdue,
     showDueToday,
@@ -130,6 +134,13 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
       }
 
       if (
+        selectedStatuses.length > 0 &&
+        !selectedStatuses.includes(getStatusDisplayName(issue.status))
+      ) {
+        return false;
+      }
+
+      if (
         selectedProjectCategories.length > 0 &&
         (!issue.projectCategory || !selectedProjectCategories.includes(issue.projectCategory))
       ) {
@@ -152,6 +163,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
     searchQuery,
     selectedTeams,
     selectedAssignees,
+    selectedStatuses,
     selectedProjectCategories,
     showOnlyOverdue,
     showDueToday,
@@ -314,6 +326,40 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
                       }
                     />
                     <span>{assignee}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+
+          <div className="gantt-filter gantt-filter-multiselect">
+            <label className="gantt-filter-label">Status:</label>
+            <details className="gantt-multiselect">
+              <summary className="gantt-multiselect-summary">
+                {selectedStatuses.length > 0 ? `${selectedStatuses.length} vybráno` : 'Všechny'}
+              </summary>
+              <div className="gantt-multiselect-menu">
+                <button
+                  type="button"
+                  className="gantt-multiselect-clear"
+                  onClick={() => setSelectedStatuses(STATUS_ORDER)}
+                >
+                  Všechny
+                </button>
+                {STATUS_ORDER.map(status => (
+                  <label key={status} className="gantt-multiselect-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status)}
+                      onChange={() =>
+                        setSelectedStatuses(prev =>
+                          prev.includes(status)
+                            ? prev.filter(s => s !== status)
+                            : [...prev, status],
+                        )
+                      }
+                    />
+                    <span>{status}</span>
                   </label>
                 ))}
               </div>
@@ -582,7 +628,27 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
                             </div>
                           </div>
 
-                          {issue.subtasks && issue.subtasks.length > 0 && (
+                          {issue.relations && issue.relations.length > 0 ? (
+                            <div className="detail-section">
+                              <h4>🔗 Related / Subtasks / Parent ({issue.relations.length})</h4>
+                              <div className="subtasks-list">
+                                {issue.relations.map((relation) => (
+                                  <div key={`${relation.id}-${relation.relationType}`} className="subtask-item">
+                                    <span className="subtask-icon">{getStatusIcon(relation.status)}</span>
+                                    <span className="subtask-id">{relation.idReadable}</span>
+                                    <span className="subtask-status">
+                                      {relation.relationType === 'parent'
+                                        ? 'Parent'
+                                        : relation.relationType === 'related'
+                                        ? 'Related'
+                                        : 'Subtask'}
+                                      {relation.status ? ` • ${relation.status}` : ''}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : issue.subtasks && issue.subtasks.length > 0 ? (
                             <div className="detail-section">
                               <h4>🔗 Related & Subtasks ({issue.subtasks.length})</h4>
                               <div className="subtasks-list">
@@ -595,7 +661,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues }) => {
                                 ))}
                               </div>
                             </div>
-                          )}
+                          ) : null}
 
                           <div className="detail-actions">
                             <button
