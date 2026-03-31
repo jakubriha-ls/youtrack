@@ -71,6 +71,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     let selectedStatus = 502;
     let selectedContentType = 'application/json';
     let selectedText = '{"error":"Proxy request failed."}';
+    let bestErrorStatus = -1;
 
     for (const target of candidates) {
       const response = await fetch(target, requestInit);
@@ -79,13 +80,25 @@ export default async function handler(req: any, res: any): Promise<void> {
       const isJson = contentType.includes('application/json');
       const looksHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html');
 
-      selectedStatus = response.status;
-      selectedContentType = contentType;
-      selectedText = text;
-
-      // Prefer API-like responses (JSON), even when they are 4xx with useful error payload.
-      if (isJson && !looksHtml) {
+      // Best case: successful JSON response.
+      if (response.ok && isJson && !looksHtml) {
+        selectedStatus = response.status;
+        selectedContentType = contentType;
+        selectedText = text;
         break;
+      }
+
+      // Keep the most informative API-style error as fallback.
+      if (isJson && !looksHtml && response.status > bestErrorStatus) {
+        bestErrorStatus = response.status;
+        selectedStatus = response.status;
+        selectedContentType = contentType;
+        selectedText = text;
+      } else if (bestErrorStatus < 0) {
+        // If we have only HTML/non-JSON errors so far, keep latest.
+        selectedStatus = response.status;
+        selectedContentType = contentType;
+        selectedText = text;
       }
     }
 
