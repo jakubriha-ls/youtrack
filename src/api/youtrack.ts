@@ -137,9 +137,15 @@ export class YouTrackAPI {
         const upstreamError =
           payload?.error_description ||
           payload?.error ||
-          payload?.message ||
-          'Unexpected response from YouTrack API.';
-        throw new Error(upstreamError);
+          payload?.message;
+        const payloadPreview =
+          typeof payload === 'string'
+            ? payload.slice(0, 220)
+            : JSON.stringify(payload)?.slice(0, 220);
+        throw new Error(
+          upstreamError ||
+            `Unexpected response from YouTrack API. Payload: ${payloadPreview || 'n/a'}`,
+        );
       }
       return payload.map((issue: any) => this.parseCustomFields(issue));
     } catch (error: any) {
