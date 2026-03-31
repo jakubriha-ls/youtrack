@@ -990,8 +990,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({
                 <div className="gantt-bar-container">
                   <div
                     className={`gantt-bar ${
-                      issue.subtaskProgress ? 'has-subtasks' : ''
-                    } ${
                       relationType === 'subtask'
                         ? 'gantt-bar-subtask'
                         : relationType === 'related'
@@ -1015,15 +1013,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({
                       )
                     }
                   >
-                    {issue.subtaskProgress && (
-                      <div
-                        className="gantt-bar-progress"
-                        style={{
-                          width: `${issue.subtaskProgress.percentage}%`,
-                        }}
-                      ></div>
-                    )}
-
                     <span className="bar-label">
                       {relationType === 'subtask'
                         ? `↳ ${issue.summary}`

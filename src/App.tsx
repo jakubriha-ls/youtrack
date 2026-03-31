@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { YouTrackAPI } from './api/youtrack';
-import { YouTrackConfig, YouTrackIssue } from './types';
+import { YouTrackConfig } from './types';
 import { ConfigForm } from './components/ConfigForm';
 import { GanttChart } from './components/GanttChart';
 import { KanbanBoard } from './components/KanbanBoard';
@@ -21,17 +21,16 @@ function App() {
   const [config, setConfig] = useState<YouTrackConfig | null>(null);
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(null);
   const [api, setApi] = useState<YouTrackAPI | null>(null);
-  const [issues, setIssues] = useState<YouTrackIssue[]>([]);
   const [allTasksIssues, setAllTasksIssues] = useState<YouTrackIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'gantt' | 'ganttall' | 'kanban' | 'alltasks'>('gantt');
-  const [selectedTag, setSelectedTag] = useState<string>('WC2026');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [dashboardPassword, setDashboardPassword] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const availableTags = ['WC2026', 'head_meeting'];
+  const availableTags = ['WC2026', 'head_meeting', 'flashscore_youtube', 'marketing-after_deadline'];
 
   useEffect(() => {
     const init = async () => {
@@ -75,6 +74,7 @@ function App() {
       try {
         const parsedUi = JSON.parse(savedUi) as Partial<{
           activeView: 'gantt' | 'ganttall' | 'kanban' | 'alltasks';
+          selectedTags: string[];
           selectedTag: string;
           theme: 'dark' | 'light';
         }>;
@@ -84,7 +84,12 @@ function App() {
         ) {
           setActiveView(parsedUi.activeView);
         }
-        if (parsedUi.selectedTag) setSelectedTag(parsedUi.selectedTag);
+        if (Array.isArray(parsedUi.selectedTags)) {
+          setSelectedTags(parsedUi.selectedTags);
+        } else if (parsedUi.selectedTag) {
+          // backward compatibility for previous single-select storage
+          setSelectedTags([parsedUi.selectedTag]);
+        }
         if (parsedUi.theme) setTheme(parsedUi.theme);
       } catch {
         // ignore
@@ -93,8 +98,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ activeView, selectedTag, theme }));
-  }, [activeView, selectedTag, theme]);
+    localStorage.setItem(UI_STORAGE_KEY, JSON.stringify({ activeView, selectedTags, theme }));
+  }, [activeView, selectedTags, theme]);
 
   useEffect(() => {
     document.body.classList.toggle('light-theme', theme === 'light');
@@ -105,39 +110,20 @@ function App() {
     if (config && (!runtimeConfig?.requiresPassword || dashboardPassword)) {
       const newApi = new YouTrackAPI(config);
       setApi(newApi);
-      loadIssues(newApi, selectedTag);
+      loadIssues(newApi);
     }
-  }, [config, selectedTag, runtimeConfig, dashboardPassword]);
+  }, [config, runtimeConfig, dashboardPassword]);
 
-  const loadIssues = async (apiInstance: YouTrackAPI, tag: string) => {
+  const loadIssues = async (apiInstance: YouTrackAPI) => {
     setLoading(true);
     setError(null);
     
     try {
-      const [marketingIssues, allMktIssues] = await Promise.all([
-        apiInstance.getMarketingIssues(tag),
-        apiInstance.getAllMarketingIssues(),
-      ]);
-
-      // Enrich tag-filtered issues (WC/Kanban views) with their subtasks,
-      // even when child issues do not carry the selected tag.
-      const subtaskIdSet = new Set<string>();
-      marketingIssues.forEach(issue => {
-        issue.subtasks?.forEach(sub => {
-          subtaskIdSet.add(sub.id);
-        });
-      });
-      const existingIds = new Set(marketingIssues.map(i => i.id));
-      const subtaskIssuesToAdd = allMktIssues.filter(
-        issue => subtaskIdSet.has(issue.id) && !existingIds.has(issue.id),
-      );
-      const enrichedMarketingIssues = [...marketingIssues, ...subtaskIssuesToAdd];
-
-      setIssues(enrichedMarketingIssues);
+      const allMktIssues = await apiInstance.getAllMarketingIssues();
       setAllTasksIssues(allMktIssues);
       
-      if (marketingIssues.length === 0) {
-        setError(`Nebyly nalezeny žádné issues s tagem ${tag} v projektu Marketing (MKT)`);
+      if (allMktIssues.length === 0) {
+        setError('Nebyly nalezeny žádné issues v projektu Marketing (MKT)');
       }
     } catch (err: any) {
       if (runtimeConfig?.managed && runtimeConfig.requiresPassword && err?.message?.includes('401')) {
@@ -171,20 +157,43 @@ function App() {
       localStorage.removeItem(STORAGE_KEY);
       setConfig(null);
       setApi(null);
-      setIssues([]);
       setAllTasksIssues([]);
     }
   };
 
   const handleRefresh = () => {
     if (api) {
-      loadIssues(api, selectedTag);
+      loadIssues(api);
     }
   };
 
-  const handleTagChange = (tag: string) => {
-    setSelectedTag(tag);
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag],
+    );
   };
+
+  const wcTags = selectedTags.length > 0 ? selectedTags : ['WC2026'];
+  const wcTagLabel =
+    selectedTags.length > 0 ? selectedTags.join(', ') : 'WC2026 (default)';
+
+  const wcIssues = useMemo(() => {
+    const filtered = allTasksIssues.filter(issue =>
+      issue.tags?.some(tag => wcTags.includes(tag)),
+    );
+
+    const subtaskIdSet = new Set<string>();
+    filtered.forEach(issue => {
+      issue.subtasks?.forEach(sub => {
+        subtaskIdSet.add(sub.id);
+      });
+    });
+    const existingIds = new Set(filtered.map(i => i.id));
+    const subtaskIssuesToAdd = allTasksIssues.filter(
+      issue => subtaskIdSet.has(issue.id) && !existingIds.has(issue.id),
+    );
+    return [...filtered, ...subtaskIssuesToAdd];
+  }, [allTasksIssues, wcTags]);
 
   if (!runtimeConfig) {
     return (
@@ -240,20 +249,34 @@ function App() {
           <h1 className="app-title">Marketing Dashboard</h1>
           <div className="connected-info">
             ✓ Připojeno k: {config.baseUrl}
-            {!loading && <span> • {issues.length} issues načteno • Tag: {selectedTag}</span>}
+            {!loading && <span> • {wcIssues.length} issues načteno • Tagy: {wcTagLabel}</span>}
           </div>
         </div>
         <div className="header-actions">
-          <select 
-            value={selectedTag} 
-            onChange={(e) => handleTagChange(e.target.value)}
-            className="tag-select"
-            disabled={loading}
-          >
-            {availableTags.map(tag => (
-              <option key={tag} value={tag}>{tag}</option>
-            ))}
-          </select>
+          <details className="gantt-multiselect">
+            <summary className="gantt-multiselect-summary">
+              {selectedTags.length > 0 ? `${selectedTags.length} tagy` : 'Žádný tag (default WC2026)'}
+            </summary>
+            <div className="gantt-multiselect-menu">
+              <button
+                type="button"
+                className="gantt-multiselect-clear"
+                onClick={() => setSelectedTags([])}
+              >
+                Žádný tag
+              </button>
+              {availableTags.map(tag => (
+                <label key={tag} className="gantt-multiselect-option">
+                  <input
+                    type="checkbox"
+                    checked={selectedTags.includes(tag)}
+                    onChange={() => toggleTag(tag)}
+                  />
+                  <span>{tag}</span>
+                </label>
+              ))}
+            </div>
+          </details>
           <button onClick={handleRefresh} className="btn-refresh" disabled={loading}>
             🔄 Obnovit
           </button>
@@ -284,7 +307,7 @@ function App() {
         </div>
       )}
 
-      {!loading && (issues.length > 0 || allTasksIssues.length > 0) && (
+      {!loading && (wcIssues.length > 0 || allTasksIssues.length > 0) && (
         <>
 <div className="view-tabs">
   <button
@@ -314,9 +337,9 @@ function App() {
 </div>
 
           <div className="view-content">
-            {activeView === 'gantt' && <GanttChart issues={issues} variant="wc" />}
+            {activeView === 'gantt' && <GanttChart issues={wcIssues} variant="wc" />}
             {activeView === 'ganttall' && <GanttChart issues={allTasksIssues} variant="all" />}
-            {activeView === 'kanban' && <KanbanBoard issues={issues} />}
+            {activeView === 'kanban' && <KanbanBoard issues={wcIssues} />}
             {activeView === 'alltasks' && <AllTasks issues={allTasksIssues} />}
           </div>
         </>

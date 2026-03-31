@@ -172,13 +172,14 @@ button:disabled {
 }
 
 .btn-refresh {
-  background: var(--success);
-  border-color: var(--success);
-  color: #08210f;
+  background: linear-gradient(135deg, #1f9d64 0%, #15803d 100%);
+  border-color: #16a34a;
+  color: #f8fffb;
+  font-weight: 600;
 }
 
 .btn-refresh:hover:not(:disabled) {
-  filter: brightness(0.94);
+  filter: brightness(1.06);
 }
 
 .btn-danger {
@@ -1235,26 +1236,6 @@ summary:focus-visible {
     gap: 10px;
   }
 }
-.gantt-bar.has-subtasks {
-  position: relative;
-  overflow: hidden;
-}
-
-.gantt-bar-progress {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 4px;
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.95) 0 6px,
-    rgba(255, 255, 255, 0.45) 6px 12px
-  );
-  border-radius: 4px 0 4px 0;
-  transition: width 0.3s;
-  z-index: 2;
-}
-
 .bar-subtask-count {
   margin-left: auto;
   font-size: 11px;
@@ -2478,6 +2459,21 @@ summary:focus-visible {
   color: #fca5a5;
 }
 
+.kanban-card.card-done {
+  background: linear-gradient(180deg, rgba(20, 83, 45, 0.75), rgba(20, 83, 45, 0.58));
+  border-left-color: #22c55e;
+}
+
+.kanban-card.card-done .card-title,
+.kanban-card.card-done .meta-value,
+.kanban-card.card-done .meta-label {
+  color: #dcfce7;
+}
+
+.kanban-card.card-done .card-id {
+  color: #86efac;
+}
+
 /* Light theme overrides (toggle) */
 body.light-theme {
   --bg: #f3f6fb;
@@ -2525,6 +2521,16 @@ body.light-theme .btn-theme-toggle {
   background: linear-gradient(135deg, #eff6ff 0%, #e2e8f0 100%);
   border-color: #cbd5e1;
   color: #0f172a;
+}
+
+body.light-theme .btn-refresh {
+  background: linear-gradient(135deg, #86efac 0%, #4ade80 100%);
+  border-color: #4ade80;
+  color: #14532d;
+}
+
+body.light-theme .btn-refresh:hover:not(:disabled) {
+  filter: brightness(0.98);
 }
 
 body.light-theme .gantt-container,
