@@ -72,11 +72,13 @@ export default async function handler(req: any, res: any): Promise<void> {
     let selectedContentType = 'application/json';
     let selectedText = '{"error":"Proxy request failed."}';
     let bestScore = -1;
+    const attempts: Array<{ target: string; status: number; contentType: string }> = [];
 
     for (const target of candidates) {
       const response = await fetch(target, requestInit);
       const contentType = response.headers.get('content-type') || 'application/json';
       const text = await response.text();
+      attempts.push({ target, status: response.status, contentType });
       const isJson = contentType.includes('application/json');
       const looksHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html');
 
@@ -105,6 +107,14 @@ export default async function handler(req: any, res: any): Promise<void> {
         selectedContentType = contentType;
         selectedText = text;
       }
+    }
+
+    if (selectedStatus === 404) {
+      res.status(404).json({
+        error: 'Upstream returned 404 for all candidates.',
+        attempts,
+      });
+      return;
     }
 
     res.status(selectedStatus);
