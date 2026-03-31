@@ -12,6 +12,21 @@ const toBaseUrl = (raw: string): string => raw.replace(/\/+$/, '');
 const buildTarget = (baseUrl: string, pathParts: string[], query: string): string =>
   `${baseUrl}/api/${pathParts.join('/')}${query ? `?${query}` : ''}`;
 
+const getPathParts = (req: any): string[] => {
+  if (Array.isArray(req.query?.path) && req.query.path.length > 0) {
+    return req.query.path.map((part: unknown) => String(part));
+  }
+  if (typeof req.query?.path === 'string' && req.query.path.trim()) {
+    return [req.query.path];
+  }
+
+  const rawUrl = String(req.url || '');
+  const pathname = rawUrl.split('?')[0] || '';
+  const normalized = pathname.replace(/^\/api\/youtrack\/?/, '');
+  if (!normalized) return [];
+  return normalized.split('/').filter(Boolean);
+};
+
 export default async function handler(req: any, res: any): Promise<void> {
   const requiredDashboardPassword = process.env.DASHBOARD_PASSWORD;
   if (requiredDashboardPassword) {
@@ -32,11 +47,7 @@ export default async function handler(req: any, res: any): Promise<void> {
     return;
   }
 
-  const pathParts = Array.isArray(req.query.path)
-    ? req.query.path
-    : req.query.path
-      ? [req.query.path]
-      : [];
+  const pathParts = getPathParts(req);
 
   const searchParams = new URLSearchParams();
   Object.entries(req.query).forEach(([key, value]) => {
