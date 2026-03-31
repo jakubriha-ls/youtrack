@@ -132,7 +132,16 @@ export class YouTrackAPI {
     };
     try {
       const response = await this.client.get('/issues', { params });
-      return response.data.map((issue: any) => this.parseCustomFields(issue));
+      const payload = response.data;
+      if (!Array.isArray(payload)) {
+        const upstreamError =
+          payload?.error_description ||
+          payload?.error ||
+          payload?.message ||
+          'Unexpected response from YouTrack API.';
+        throw new Error(upstreamError);
+      }
+      return payload.map((issue: any) => this.parseCustomFields(issue));
     } catch (error: any) {
       console.error('Chyba při načítání issues:', error);
       throw new Error(`Nepodařilo se načíst issues: ${error.message}`);
