@@ -52,7 +52,11 @@ export default async function handler(req: any, res: any): Promise<void> {
 
   const query = searchParams.toString();
   const normalizedBase = toBaseUrl(baseUrl);
-  const target = buildTarget(normalizedBase, pathParts, query);
+  const candidates = new Set<string>();
+  candidates.add(buildTarget(normalizedBase, pathParts, query));
+  if (!normalizedBase.endsWith('/youtrack')) {
+    candidates.add(buildTarget(`${normalizedBase}/youtrack`, pathParts, query));
+  }
 
   try {
     const requestInit = {
@@ -64,20 +68,30 @@ export default async function handler(req: any, res: any): Promise<void> {
       },
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body ?? {}),
     };
+    let selectedStatus = 502;
+    let selectedContentType = 'application/json';
+    let selectedText = '{"error":"Proxy request failed."}';
 
-    let response = await fetch(target, requestInit);
+    for (const target of candidates) {
+      const response = await fetch(target, requestInit);
+      const contentType = response.headers.get('content-type') || 'application/json';
+      const text = await response.text();
+      const isJson = contentType.includes('application/json');
+      const looksHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html');
 
-    // Some YouTrack setups are hosted under /youtrack, not root.
-    if (response.status === 404 && !normalizedBase.endsWith('/youtrack')) {
-      const fallbackTarget = buildTarget(`${normalizedBase}/youtrack`, pathParts, query);
-      response = await fetch(fallbackTarget, requestInit);
+      selectedStatus = response.status;
+      selectedContentType = contentType;
+      selectedText = text;
+
+      // Prefer API-like responses (JSON), even when they are 4xx with useful error payload.
+      if (isJson && !looksHtml) {
+        break;
+      }
     }
 
-    const text = await response.text();
-    const contentType = response.headers.get('content-type') || 'application/json';
-    res.status(response.status);
-    res.setHeader('content-type', contentType);
-    res.send(text);
+    res.status(selectedStatus);
+    res.setHeader('content-type', selectedContentType);
+    res.send(selectedText);
   } catch (error: any) {
     res.status(502).json({
       error: 'Proxy request failed.',
