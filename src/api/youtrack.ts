@@ -10,13 +10,14 @@ export class YouTrackAPI {
     'links(direction,linkType(name),issues(id,idReadable,customFields(name,value(name))))';
 
   constructor(config: YouTrackConfig) {
-    const isDevelopment = import.meta.env.DEV;
-    const baseURL = isDevelopment ? '/api' : `${config.baseUrl}/api`;
-    
     this.client = axios.create({
-      baseURL: baseURL,
+      baseURL: '/api/youtrack',
       headers: {
-        'Authorization': `Bearer ${config.token}`,
+        ...(config.baseUrl ? { 'X-YouTrack-Base-Url': config.baseUrl } : {}),
+        ...(config.token ? { 'X-YouTrack-Token': config.token } : {}),
+        ...(config.dashboardPassword
+          ? { 'X-Dashboard-Password': config.dashboardPassword }
+          : {}),
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },

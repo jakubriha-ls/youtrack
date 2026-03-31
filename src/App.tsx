@@ -9,9 +9,17 @@ import { ConfigProvider } from './ConfigContext';
 
 const STORAGE_KEY = 'youtrack-config';
 const UI_STORAGE_KEY = 'dashboard-ui-v1';
+const DASHBOARD_PASSWORD_STORAGE_KEY = 'dashboard-password-v1';
+
+type RuntimeConfig = {
+  managed: boolean;
+  baseUrl: string | null;
+  requiresPassword: boolean;
+};
 
 function App() {
   const [config, setConfig] = useState<YouTrackConfig | null>(null);
+  const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig | null>(null);
   const [api, setApi] = useState<YouTrackAPI | null>(null);
   const [issues, setIssues] = useState<YouTrackIssue[]>([]);
   const [allTasksIssues, setAllTasksIssues] = useState<YouTrackIssue[]>([]);
@@ -20,18 +28,47 @@ function App() {
   const [activeView, setActiveView] = useState<'gantt' | 'ganttall' | 'kanban' | 'alltasks'>('gantt');
   const [selectedTag, setSelectedTag] = useState<string>('WC2026');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [dashboardPassword, setDashboardPassword] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const availableTags = ['WC2026', 'head_meeting'];
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem(STORAGE_KEY);
-    if (savedConfig) {
+    const init = async () => {
       try {
-        const parsedConfig = JSON.parse(savedConfig);
-        setConfig(parsedConfig);
-      } catch (e) {
-        console.error('Chyba při načítání konfigurace:', e);
+        const response = await fetch('/api/runtime-config');
+        const runtime = (await response.json()) as RuntimeConfig;
+        setRuntimeConfig(runtime);
+
+        if (runtime.managed) {
+          const savedPassword = sessionStorage.getItem(DASHBOARD_PASSWORD_STORAGE_KEY) || '';
+          setDashboardPassword(savedPassword);
+          setConfig({
+            baseUrl: runtime.baseUrl || 'Server-managed',
+            token: '',
+            dashboardPassword: savedPassword,
+          });
+        } else {
+          const savedConfig = localStorage.getItem(STORAGE_KEY);
+          if (savedConfig) {
+            try {
+              const parsedConfig = JSON.parse(savedConfig);
+              setConfig(parsedConfig);
+            } catch (e) {
+              console.error('Chyba při načítání konfigurace:', e);
+            }
+          }
+        }
+      } catch {
+        setRuntimeConfig({
+          managed: false,
+          baseUrl: null,
+          requiresPassword: false,
+        });
       }
-    }
+    };
+
+    void init();
 
     const savedUi = localStorage.getItem(UI_STORAGE_KEY);
     if (savedUi) {
@@ -65,12 +102,12 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (config) {
+    if (config && (!runtimeConfig?.requiresPassword || dashboardPassword)) {
       const newApi = new YouTrackAPI(config);
       setApi(newApi);
       loadIssues(newApi, selectedTag);
     }
-  }, [config, selectedTag]);
+  }, [config, selectedTag, runtimeConfig, dashboardPassword]);
 
   const loadIssues = async (apiInstance: YouTrackAPI, tag: string) => {
     setLoading(true);
@@ -103,6 +140,12 @@ function App() {
         setError(`Nebyly nalezeny žádné issues s tagem ${tag} v projektu Marketing (MKT)`);
       }
     } catch (err: any) {
+      if (runtimeConfig?.managed && runtimeConfig.requiresPassword && err?.message?.includes('401')) {
+        setPasswordError('Neplatné heslo.');
+        setDashboardPassword('');
+        sessionStorage.removeItem(DASHBOARD_PASSWORD_STORAGE_KEY);
+        setConfig(prev => (prev ? { ...prev, dashboardPassword: '' } : prev));
+      }
       setError(`Chyba při načítání dat: ${err.message}`);
     } finally {
       setLoading(false);
@@ -112,6 +155,15 @@ function App() {
   const handleConfigSave = (newConfig: YouTrackConfig) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
     setConfig(newConfig);
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    const next = passwordInput.trim();
+    setDashboardPassword(next);
+    sessionStorage.setItem(DASHBOARD_PASSWORD_STORAGE_KEY, next);
+    setConfig(prev => (prev ? { ...prev, dashboardPassword: next } : prev));
   };
 
   const handleLogout = () => {
@@ -133,6 +185,43 @@ function App() {
   const handleTagChange = (tag: string) => {
     setSelectedTag(tag);
   };
+
+  if (!runtimeConfig) {
+    return (
+      <div>
+        <h1>Marketing Dashboard</h1>
+        <div className="status loading">⏳ Inicializuji konfiguraci...</div>
+      </div>
+    );
+  }
+
+  if (runtimeConfig.managed && runtimeConfig.requiresPassword && !dashboardPassword) {
+    return (
+      <div>
+        <h1>Marketing Dashboard</h1>
+        <div className="config-form">
+          <h2>Zadejte heslo pro přístup</h2>
+          <form onSubmit={handlePasswordSubmit}>
+            <div className="form-group">
+              <label htmlFor="dashboard-password">Password:</label>
+              <input
+                id="dashboard-password"
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            {passwordError && <div className="status error">⚠️ {passwordError}</div>}
+            <button type="submit" className="btn-primary">
+              Přihlásit
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (!config) {
     return (
@@ -168,9 +257,11 @@ function App() {
           <button onClick={handleRefresh} className="btn-refresh" disabled={loading}>
             🔄 Obnovit
           </button>
-          <button onClick={handleLogout} className="btn-danger">
-            Odhlásit se
-          </button>
+          {!runtimeConfig.managed && (
+            <button onClick={handleLogout} className="btn-danger">
+              Odhlásit se
+            </button>
+          )}
           <button
             onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
             className="btn-theme-toggle"

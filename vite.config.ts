@@ -9,10 +9,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        '/api': {
+        '/api/youtrack': {
           target: proxyTarget,
           changeOrigin: true,
           secure: true,
+          rewrite: (path) => path.replace(/^\/api\/youtrack/, '/api'),
         },
       },
     },

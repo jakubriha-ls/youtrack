@@ -1,6 +1,7 @@
 export interface YouTrackConfig {
   baseUrl: string;
-  token: string;
+  token?: string;
+  dashboardPassword?: string;
 }
 
 export interface SubTask {
