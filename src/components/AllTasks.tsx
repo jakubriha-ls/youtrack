@@ -579,7 +579,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
           <tbody>
             {sortedIssues.map((issue) => {
               const isDone = isDoneStatus(issue.status);
-              const overdueClass = isOverdue(issue.dueDate) ? 'row-overdue' : '';
+              const overdueClass = !isDone && isOverdue(issue.dueDate) ? 'row-overdue' : '';
               const doneClass = isDone ? 'row-done' : '';
               const expandedClass = expandedIssueId === issue.id ? 'row-expanded' : '';
 

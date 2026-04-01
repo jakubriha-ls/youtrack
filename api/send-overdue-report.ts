@@ -55,7 +55,7 @@ export default async function handler(req: any, res: any): Promise<void> {
   const tasks = Array.isArray(body.tasks) ? body.tasks : [];
   const dashboardUrl = body.dashboardUrl || '';
 
-  const subject = `[MKT Dashboard] Overdue tasks report (${tasks.length})`;
+  const subject = `[YouTrack] Marketing Overdue Tasks report`;
   const rows = tasks
     .slice(0, 200)
     .map(
