@@ -536,6 +536,13 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+.gantt-count-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .gantt-container {
   margin-top: 20px;
   overflow-x: auto;
@@ -726,7 +733,7 @@ summary:focus-visible {
 
 .timeline-inner {
   position: relative;
-  margin-left: 280px; /* vizuální offset – stejný jako šířka info sloupce */
+  margin-left: 290px; /* 280px info sloupec + 10px grid gap = start osy/barů */
 }
 
 .timeline-today-label {

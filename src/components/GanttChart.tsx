@@ -556,6 +556,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
                 <span className="gantt-flag" title="Mexico">🇲🇽</span>
                 <span className="gantt-flag" title="Canada">🇨🇦</span>
                 <span className="gantt-sorted-note">Sorted by tag {sortedByLabel}</span>
+                <span className="gantt-count-note">{issues.length} tasks loaded</span>
               </div>
             </div>
           </div>
@@ -580,6 +581,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
               <span className="gantt-flag" title="Mexico">🇲🇽</span>
               <span className="gantt-flag" title="Canada">🇨🇦</span>
               <span className="gantt-sorted-note">Sorted by tag {sortedByLabel}</span>
+              <span className="gantt-count-note">{issues.length} tasks loaded</span>
             </div>
           </div>
         </div>
