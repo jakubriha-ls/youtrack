@@ -613,6 +613,15 @@ summary:focus-visible {
   user-select: none;
 }
 
+.gantt-multiselect-summary:hover,
+.gantt-filter-select:hover,
+.gantt-filter-input:hover,
+.search-input:hover {
+  border-color: #3b4f78;
+  background: rgba(15, 23, 42, 0.96);
+  color: var(--text);
+}
+
 .tag-filter-summary {
   background: #fef3c7;
   border-color: #f59e0b;
