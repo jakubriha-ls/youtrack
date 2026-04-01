@@ -128,8 +128,8 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   };
   // Spodní/ horní hranice osy
   const CLAMP_START = toLocalMidnight(new Date(2026, 0, 1).getTime()); // 1.1.2026
-  // Horní hranice osy – 31. 8. 2026 (včetně)
-  const CLAMP_END = toLocalMidnight(new Date(2026, 7, 31).getTime()); // měsíce 0–11 → 7 = srpen
+  // Horní hranice osy – 31. 12. 2026 (včetně)
+  const CLAMP_END = toLocalMidnight(new Date(2026, 11, 31).getTime()); // měsíce 0–11 → 11 = prosinec
 
   // World Cup pevné body
   const WC_START_TS = toLocalMidnight(new Date(2026, 5, 11).getTime()); // 11. 6. 2026
@@ -312,14 +312,10 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   // Osa: pevně od 1. 1. 2026 do CLAMP_END (31. 8. 2026)
   const { minDay, maxDay, totalDays } = useMemo(() => {
     if (issuesWithDates.length === 0) {
-      const startIdx = Math.floor(CLAMP_START / DAY_MS);
-      const endIdx = Math.floor(CLAMP_END / DAY_MS);
-      const days = endIdx - startIdx + 1;
-
       return {
-        minDay: startIdx * DAY_MS,
-        maxDay: (endIdx + 1) * DAY_MS,
-        totalDays: days,
+        minDay: CLAMP_START,
+        maxDay: CLAMP_END + DAY_MS,
+        totalDays: Math.floor((CLAMP_END - CLAMP_START) / DAY_MS) + 1,
       };
     }
 
@@ -328,23 +324,16 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     );
     const effectiveEnd = Math.min(maxFromData, CLAMP_END);
 
-    const startIdx = Math.floor(CLAMP_START / DAY_MS);
-      const endIdx = Math.floor(effectiveEnd / DAY_MS);
-      const days = endIdx - startIdx + 1;
-
-      return {
-        minDay: startIdx * DAY_MS,
-        maxDay: (endIdx + 1) * DAY_MS,
-        totalDays: days,
-      };
+    return {
+      minDay: CLAMP_START,
+      maxDay: effectiveEnd + DAY_MS,
+      totalDays: Math.floor((effectiveEnd - CLAMP_START) / DAY_MS) + 1,
+    };
   }, [issuesWithDates, CLAMP_START, CLAMP_END]);
 
   const dayIndex = (timestamp: number): number => {
     const t = toLocalMidnight(timestamp);
-    return (
-      Math.floor(t / DAY_MS) -
-      Math.floor(minDay / DAY_MS)
-    );
+    return Math.floor((t - minDay) / DAY_MS);
   };
 
   const getPosition = (timestamp: number): number => {
@@ -355,7 +344,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   const getWidth = (start: number, end: number): number => {
     const startIdx = dayIndex(start);
     const rawEndIdx = dayIndex(end);
-    const endIdx = Math.min(rawEndIdx, totalDays - 1); // tasky po 31. 8. ořízneme na konec osy
+    const endIdx = Math.min(rawEndIdx, totalDays - 1); // tasky po 31. 12. ořízneme na konec osy
     const spanDays = Math.max(endIdx - startIdx + 1, 1); // inkluzivně, aspoň 1 den
     return (spanDays / totalDays) * 100;
   };
