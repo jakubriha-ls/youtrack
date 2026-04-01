@@ -128,8 +128,10 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   };
   // Spodní/ horní hranice osy
   const CLAMP_START = toLocalMidnight(new Date(2026, 0, 1).getTime()); // 1.1.2026
-  // Horní hranice osy – 31. 12. 2026 (včetně)
-  const CLAMP_END = toLocalMidnight(new Date(2026, 11, 31).getTime()); // měsíce 0–11 → 11 = prosinec
+  // WC: leden-srpen 2026, All tasks: celý rok 2026
+  const CLAMP_END = toLocalMidnight(
+    new Date(2026, isAllTasksVariant ? 11 : 7, isAllTasksVariant ? 31 : 31).getTime(),
+  );
 
   // World Cup pevné body
   const WC_START_TS = toLocalMidnight(new Date(2026, 5, 11).getTime()); // 11. 6. 2026
@@ -249,6 +251,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       if (!showClosedTasks && isDoneStatus(issue.status)) {
         return false;
       }
+      if (toLocalMidnight(issue.dueDate) < CLAMP_START) return false;
       if (toLocalMidnight(issue.startDate) > CLAMP_END) return false;
       if (
         assigneeFilters.length > 0 &&
@@ -337,14 +340,15 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   };
 
   const getPosition = (timestamp: number): number => {
-    const idx = dayIndex(timestamp);
+    const idx = Math.max(dayIndex(timestamp), 0);
     return (idx / totalDays) * 100;
   };
 
   const getWidth = (start: number, end: number): number => {
-    const startIdx = dayIndex(start);
+    const startIdx = Math.max(dayIndex(start), 0);
     const rawEndIdx = dayIndex(end);
-    const endIdx = Math.min(rawEndIdx, totalDays - 1); // tasky po 31. 12. ořízneme na konec osy
+    const endIdx = Math.min(rawEndIdx, totalDays - 1); // tasky po konci osy ořízneme na konec
+    if (endIdx < startIdx) return 0;
     const spanDays = Math.max(endIdx - startIdx + 1, 1); // inkluzivně, aspoň 1 den
     return (spanDays / totalDays) * 100;
   };
@@ -910,6 +914,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
           {orderedItems.map(({ issue, relationType, hasChildren }) => {
             const left = getPosition(issue.startDate!);
             const width = getWidth(issue.startDate!, issue.dueDate!);
+            if (width <= 0) return null;
             const overdue = isOverdue(issue.dueDate) && !isDoneStatus(issue.status);
             const isDone = isDoneStatus(issue.status);
             const barBg = getStatusColor(issue.status);
