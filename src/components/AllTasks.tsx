@@ -290,6 +290,10 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
   };
 
   const sendOverdueReport = async () => {
+    if (!showOnlyOverdue) {
+      setReportStatus('Overdue tasks are not filtered');
+      return;
+    }
     setIsSendingReport(true);
     setReportStatus('');
     try {
@@ -335,7 +339,7 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     <div className="all-tasks">
               <div className="all-tasks-header">
         <div className="header-top">
-          <h2>All Tasks - Marketing</h2>
+          <h2>All Tasks - Marketing · {filteredIssues.length} tasks loaded</h2>
           <div className="all-tasks-header-right">
             <span className="task-count">
               {filteredIssues.length} {filteredIssues.length !== issues.length && `(z ${issues.length})`} tasků
@@ -580,13 +584,12 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
             {sortedIssues.map((issue) => {
               const isDone = isDoneStatus(issue.status);
               const overdueClass = !isDone && isOverdue(issue.dueDate) ? 'row-overdue' : '';
-              const doneClass = isDone ? 'row-done' : '';
               const expandedClass = expandedIssueId === issue.id ? 'row-expanded' : '';
 
               return (
                 <React.Fragment key={issue.id}>
                   <tr 
-                    className={`task-row ${overdueClass} ${doneClass} ${expandedClass}`}
+                    className={`task-row ${overdueClass} ${expandedClass}`}
                     onClick={() => toggleExpand(issue.id)}
                   >
                     <td className="col-checkbox" onClick={(e) => e.stopPropagation()}>
