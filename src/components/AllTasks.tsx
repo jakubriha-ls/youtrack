@@ -34,6 +34,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
   const [sortField, setSortField] = useState<SortField>('updated');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
+  const [isSendingReport, setIsSendingReport] = useState(false);
+  const [reportStatus, setReportStatus] = useState<string>('');
   const { config } = useConfig();
 
   useEffect(() => {
@@ -238,6 +240,11 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     return sorted;
   }, [filteredIssues, sortField, sortDirection]);
 
+  const overdueIssuesForReport = useMemo(
+    () => filteredIssues.filter(issue => isOverdue(issue.dueDate) && !isDoneStatus(issue.status)),
+    [filteredIssues],
+  );
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -282,6 +289,43 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     });
   };
 
+  const sendOverdueReport = async () => {
+    setIsSendingReport(true);
+    setReportStatus('');
+    try {
+      const response = await fetch('/api/send-overdue-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.dashboardPassword
+            ? { 'X-Dashboard-Password': config.dashboardPassword }
+            : {}),
+        },
+        body: JSON.stringify({
+          dashboardUrl: window.location.href,
+          tasks: overdueIssuesForReport.map(issue => ({
+            idReadable: issue.idReadable,
+            summary: issue.summary,
+            dueDate: issue.dueDate,
+            assignee: issue.assignee,
+            owner: issue.owner,
+          })),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Email send failed.');
+      }
+      setReportStatus(
+        `Report sent to jakub.riha@livesport.eu (${overdueIssuesForReport.length} overdue tasks).`,
+      );
+    } catch (error: any) {
+      setReportStatus(`Failed to send report: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setIsSendingReport(false);
+    }
+  };
+
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return '⇅';
     return sortDirection === 'asc' ? '↑' : '↓';
@@ -300,8 +344,17 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
             <button className="gantt-reset-btn" onClick={resetFilters}>
               Reset filtru
             </button>
+            <button
+              className="gantt-reset-btn"
+              onClick={sendOverdueReport}
+              disabled={isSendingReport}
+              title="Pošle report tasků po termínu emailem"
+            >
+              {isSendingReport ? 'Sending...' : 'Send overdue report'}
+            </button>
           </div>
         </div>
+        {reportStatus && <div className="status loading">{reportStatus}</div>}
 
         <div className="filters-row">
           <input

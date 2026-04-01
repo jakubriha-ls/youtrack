@@ -3084,10 +3084,20 @@ body.light-theme .task-row.row-overdue:hover td:nth-child(n + 3) {
 
 .stats-quality-item summary {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.stats-quality-item summary::after {
+  content: '▾';
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stats-quality-item[open] summary::after {
+  content: '▴';
 }
 
 .stats-quality-tasks {
@@ -3128,6 +3138,16 @@ body.light-theme .task-row.row-overdue:hover td:nth-child(n + 3) {
   text-align: left;
   cursor: pointer;
   padding: 0;
+}
+
+.stats-head-btn:hover {
+  color: var(--primary);
+}
+
+.stats-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin: -4px 0 8px;
 }
 
 .stats-people-row {

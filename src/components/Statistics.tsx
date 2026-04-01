@@ -175,23 +175,24 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFi
 
         <div className="stats-card">
           <h3>Most Active People (MKT)</h3>
+          <div className="stats-hint">Tip: klikni na název sloupce pro řazení sestupně.</div>
           <div className="stats-people-table">
             <div className="stats-people-head">
               <button type="button" className="stats-head-btn" onClick={() => setPeopleSortBy('name')}>
-                Person {peopleSortBy === 'name' ? '↓' : ''}
+                Person {peopleSortBy === 'name' ? '↓' : '⇅'}
               </button>
               <button type="button" className="stats-head-btn" onClick={() => setPeopleSortBy('created')}>
-                Created {peopleSortBy === 'created' ? '↓' : ''}
+                Created {peopleSortBy === 'created' ? '↓' : '⇅'}
               </button>
               <button type="button" className="stats-head-btn" onClick={() => setPeopleSortBy('assigned')}>
-                Assigned {peopleSortBy === 'assigned' ? '↓' : ''}
+                Assigned {peopleSortBy === 'assigned' ? '↓' : '⇅'}
               </button>
               <button
                 type="button"
                 className="stats-head-btn"
                 onClick={() => setPeopleSortBy('recentUpdates')}
               >
-                Recent upd. {peopleSortBy === 'recentUpdates' ? '↓' : ''}
+                Recent upd. {peopleSortBy === 'recentUpdates' ? '↓' : '⇅'}
               </button>
             </div>
             {sortedPeople.map(person => (
