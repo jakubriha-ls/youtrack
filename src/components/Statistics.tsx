@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AllTasksFilterPreset, YouTrackIssue } from '../types';
 import { isDoneStatus } from '../statusMeta';
 
@@ -8,6 +8,9 @@ interface StatisticsProps {
 }
 
 export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFilter }) => {
+  const [peopleSortBy, setPeopleSortBy] = useState<
+    'name' | 'created' | 'assigned' | 'recentUpdates'
+  >('recentUpdates');
   const now = Date.now();
   const last7d = now - 7 * 24 * 60 * 60 * 1000;
 
@@ -63,8 +66,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFi
       ...touchedRecently.keys(),
     ]);
 
-    return Array.from(keys)
-      .map(name => ({
+    return Array.from(keys).map(name => ({
         name,
         created: createdBy.get(name) || 0,
         assigned: assignedTo.get(name) || 0,
@@ -73,22 +75,34 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFi
           (createdBy.get(name) || 0) * 1 +
           (assignedTo.get(name) || 0) * 0.7 +
           (touchedRecently.get(name) || 0) * 1.4,
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
+      }));
   }, [issues, last7d]);
+
+  const sortedPeople = useMemo(() => {
+    const sorted = [...activityByPeople];
+    sorted.sort((a, b) => {
+      if (peopleSortBy === 'name') {
+        return b.name.localeCompare(a.name, 'cs');
+      }
+      return (b[peopleSortBy] as number) - (a[peopleSortBy] as number);
+    });
+    return sorted.slice(0, 10);
+  }, [activityByPeople, peopleSortBy]);
 
   const maxTeam = byMktTeam[0]?.[1] || 1;
   const maxCategory = byProjectCategory[0]?.[1] || 1;
-  const dataQuality = useMemo(
-    () => ({
-      missingAssignee: issues.filter(i => !i.assignee).length,
-      missingTeam: issues.filter(i => !i.mktTeam || i.mktTeam.length === 0).length,
-      missingStartDate: issues.filter(i => !i.startDate).length,
-      missingDueDate: issues.filter(i => !i.dueDate).length,
-    }),
-    [issues],
-  );
+  const dataQuality = useMemo(() => {
+    const missingAssignee = issues.filter(i => !i.assignee);
+    const missingTeam = issues.filter(i => !i.mktTeam || i.mktTeam.length === 0);
+    const missingStartDate = issues.filter(i => !i.startDate);
+    const missingDueDate = issues.filter(i => !i.dueDate);
+    return {
+      missingAssignee,
+      missingTeam,
+      missingStartDate,
+      missingDueDate,
+    };
+  }, [issues]);
 
   return (
     <div className="statistics-overview">
@@ -163,12 +177,24 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFi
           <h3>Most Active People (MKT)</h3>
           <div className="stats-people-table">
             <div className="stats-people-head">
-              <span>Person</span>
-              <span>Created</span>
-              <span>Assigned</span>
-              <span>Recent upd.</span>
+              <button type="button" className="stats-head-btn" onClick={() => setPeopleSortBy('name')}>
+                Person {peopleSortBy === 'name' ? '↓' : ''}
+              </button>
+              <button type="button" className="stats-head-btn" onClick={() => setPeopleSortBy('created')}>
+                Created {peopleSortBy === 'created' ? '↓' : ''}
+              </button>
+              <button type="button" className="stats-head-btn" onClick={() => setPeopleSortBy('assigned')}>
+                Assigned {peopleSortBy === 'assigned' ? '↓' : ''}
+              </button>
+              <button
+                type="button"
+                className="stats-head-btn"
+                onClick={() => setPeopleSortBy('recentUpdates')}
+              >
+                Recent upd. {peopleSortBy === 'recentUpdates' ? '↓' : ''}
+              </button>
             </div>
-            {activityByPeople.map(person => (
+            {sortedPeople.map(person => (
               <button
                 key={person.name}
                 className="stats-people-row stats-action-row"
@@ -186,23 +212,86 @@ export const Statistics: React.FC<StatisticsProps> = ({ issues, onOpenAllTasksFi
 
         <div className="stats-card">
           <h3>Data Quality</h3>
-          <div className="stats-list">
-            <div className="stats-list-item">
-              <span className="stats-item-id">Assignee</span>
-              <span className="stats-item-summary">Missing: {dataQuality.missingAssignee}</span>
-            </div>
-            <div className="stats-list-item">
-              <span className="stats-item-id">MKT Team</span>
-              <span className="stats-item-summary">Missing: {dataQuality.missingTeam}</span>
-            </div>
-            <div className="stats-list-item">
-              <span className="stats-item-id">Start Date</span>
-              <span className="stats-item-summary">Missing: {dataQuality.missingStartDate}</span>
-            </div>
-            <div className="stats-list-item">
-              <span className="stats-item-id">Due Date</span>
-              <span className="stats-item-summary">Missing: {dataQuality.missingDueDate}</span>
-            </div>
+          <div className="stats-quality-list">
+            <details className="stats-quality-item">
+              <summary>
+                <span className="stats-item-id">Assignee</span>
+                <span className="stats-item-summary">Missing: {dataQuality.missingAssignee.length}</span>
+              </summary>
+              <div className="stats-quality-tasks">
+                {dataQuality.missingAssignee.slice(0, 20).map(issue => (
+                  <button
+                    key={issue.id}
+                    type="button"
+                    className="stats-list-item stats-list-item-action"
+                    onClick={() => onOpenAllTasksFilter?.({ searchQuery: issue.idReadable })}
+                  >
+                    <span className="stats-item-id">{issue.idReadable}</span>
+                    <span className="stats-item-summary">{issue.summary}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
+
+            <details className="stats-quality-item">
+              <summary>
+                <span className="stats-item-id">MKT Team</span>
+                <span className="stats-item-summary">Missing: {dataQuality.missingTeam.length}</span>
+              </summary>
+              <div className="stats-quality-tasks">
+                {dataQuality.missingTeam.slice(0, 20).map(issue => (
+                  <button
+                    key={issue.id}
+                    type="button"
+                    className="stats-list-item stats-list-item-action"
+                    onClick={() => onOpenAllTasksFilter?.({ searchQuery: issue.idReadable })}
+                  >
+                    <span className="stats-item-id">{issue.idReadable}</span>
+                    <span className="stats-item-summary">{issue.summary}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
+
+            <details className="stats-quality-item">
+              <summary>
+                <span className="stats-item-id">Start Date</span>
+                <span className="stats-item-summary">Missing: {dataQuality.missingStartDate.length}</span>
+              </summary>
+              <div className="stats-quality-tasks">
+                {dataQuality.missingStartDate.slice(0, 20).map(issue => (
+                  <button
+                    key={issue.id}
+                    type="button"
+                    className="stats-list-item stats-list-item-action"
+                    onClick={() => onOpenAllTasksFilter?.({ searchQuery: issue.idReadable })}
+                  >
+                    <span className="stats-item-id">{issue.idReadable}</span>
+                    <span className="stats-item-summary">{issue.summary}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
+
+            <details className="stats-quality-item">
+              <summary>
+                <span className="stats-item-id">Due Date</span>
+                <span className="stats-item-summary">Missing: {dataQuality.missingDueDate.length}</span>
+              </summary>
+              <div className="stats-quality-tasks">
+                {dataQuality.missingDueDate.slice(0, 20).map(issue => (
+                  <button
+                    key={issue.id}
+                    type="button"
+                    className="stats-list-item stats-list-item-action"
+                    onClick={() => onOpenAllTasksFilter?.({ searchQuery: issue.idReadable })}
+                  >
+                    <span className="stats-item-id">{issue.idReadable}</span>
+                    <span className="stats-item-summary">{issue.summary}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
         </div>
       </div>
