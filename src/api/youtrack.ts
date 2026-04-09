@@ -64,6 +64,11 @@ export class YouTrackAPI {
         case 'Owner (who made an issue)':
           parsed.owner = field.value?.name || field.value?.login || null;
           break;
+        case 'Reporter':
+        case 'Creator':
+        case 'Created by':
+          parsed.creator = field.value?.name || field.value?.login || null;
+          break;
         case 'Start Date':
           parsed.startDate = field.value;
           break;
@@ -72,6 +77,10 @@ export class YouTrackAPI {
           break;
       }
     });
+
+    if (!parsed.creator && parsed.owner) {
+      parsed.creator = parsed.owner;
+    }
 
     // Parsování subtasků a souvisejících tasků
     if (issue.links && Array.isArray(issue.links)) {

@@ -26,6 +26,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(STATUS_ORDER);
   const [selectedProjectCategories, setSelectedProjectCategories] = useState<string[]>([]);
   const [showOnlyOverdue, setShowOnlyOverdue] = useState(false);
@@ -41,6 +43,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     setSearchQuery(presetFilters.searchQuery || '');
     setSelectedTeams(presetFilters.teams || []);
     setSelectedAssignees(presetFilters.assignees || []);
+    setSelectedOwners(presetFilters.owners || []);
+    setSelectedCreators(presetFilters.creators || []);
     setSelectedStatuses(presetFilters.statuses || STATUS_ORDER);
     setSelectedProjectCategories(presetFilters.projectCategories || []);
     setShowOnlyOverdue(Boolean(presetFilters.showOnlyOverdue));
@@ -64,6 +68,22 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
       if (issue.assignee) assigneeSet.add(issue.assignee);
     });
     return Array.from(assigneeSet).sort((a, b) => a.localeCompare(b, 'cs'));
+  }, [issues]);
+
+  const owners = useMemo(() => {
+    const ownerSet = new Set<string>();
+    issues.forEach(issue => {
+      if (issue.owner) ownerSet.add(issue.owner);
+    });
+    return Array.from(ownerSet).sort((a, b) => a.localeCompare(b, 'cs'));
+  }, [issues]);
+
+  const creators = useMemo(() => {
+    const creatorSet = new Set<string>();
+    issues.forEach(issue => {
+      if (issue.creator) creatorSet.add(issue.creator);
+    });
+    return Array.from(creatorSet).sort((a, b) => a.localeCompare(b, 'cs'));
   }, [issues]);
 
   const projectCategories = useMemo(() => {
@@ -95,6 +115,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     setSearchQuery('');
     setSelectedTeams([]);
     setSelectedAssignees([]);
+    setSelectedOwners([]);
+    setSelectedCreators([]);
     setSelectedStatuses(STATUS_ORDER);
     setSelectedProjectCategories([]);
     setShowOnlyOverdue(false);
@@ -106,6 +128,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     if (searchQuery.trim()) count += 1;
     if (selectedTeams.length > 0) count += 1;
     if (selectedAssignees.length > 0) count += 1;
+    if (selectedOwners.length > 0) count += 1;
+    if (selectedCreators.length > 0) count += 1;
     if (selectedStatuses.length !== STATUS_ORDER.length) count += 1;
     if (selectedProjectCategories.length > 0) count += 1;
     if (showOnlyOverdue) count += 1;
@@ -115,6 +139,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     searchQuery,
     selectedTeams,
     selectedAssignees,
+    selectedOwners,
+    selectedCreators,
     selectedStatuses,
     selectedProjectCategories,
     showOnlyOverdue,
@@ -127,6 +153,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
         issue.idReadable.toLowerCase().includes(searchQuery.toLowerCase()) ||
         issue.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (issue.assignee || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (issue.owner || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (issue.creator || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (issue.projectCategory || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (issue.mktTeam || []).join(' ').toLowerCase().includes(searchQuery.toLowerCase());
       
@@ -142,6 +170,17 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
       if (
         selectedAssignees.length > 0 &&
         (!issue.assignee || !selectedAssignees.includes(issue.assignee))
+      ) {
+        return false;
+      }
+
+      if (selectedOwners.length > 0 && (!issue.owner || !selectedOwners.includes(issue.owner))) {
+        return false;
+      }
+
+      if (
+        selectedCreators.length > 0 &&
+        (!issue.creator || !selectedCreators.includes(issue.creator))
       ) {
         return false;
       }
@@ -176,6 +215,8 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
     searchQuery,
     selectedTeams,
     selectedAssignees,
+    selectedOwners,
+    selectedCreators,
     selectedStatuses,
     selectedProjectCategories,
     showOnlyOverdue,
@@ -374,6 +415,74 @@ export const AllTasks: React.FC<AllTasksProps> = ({ issues, presetFilters, onPre
                       }
                     />
                     <span>{status}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+
+          <div className="gantt-filter gantt-filter-multiselect">
+            <label className="gantt-filter-label">Owner:</label>
+            <details className="gantt-multiselect">
+              <summary className="gantt-multiselect-summary">
+                {selectedOwners.length > 0 ? `${selectedOwners.length} vybráno` : 'Všichni'}
+              </summary>
+              <div className="gantt-multiselect-menu">
+                <button
+                  type="button"
+                  className="gantt-multiselect-clear"
+                  onClick={() => setSelectedOwners([])}
+                >
+                  Všichni
+                </button>
+                {owners.map(owner => (
+                  <label key={owner} className="gantt-multiselect-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedOwners.includes(owner)}
+                      onChange={() =>
+                        setSelectedOwners(prev =>
+                          prev.includes(owner)
+                            ? prev.filter(o => o !== owner)
+                            : [...prev, owner],
+                        )
+                      }
+                    />
+                    <span>{owner}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+
+          <div className="gantt-filter gantt-filter-multiselect">
+            <label className="gantt-filter-label">Created by:</label>
+            <details className="gantt-multiselect">
+              <summary className="gantt-multiselect-summary">
+                {selectedCreators.length > 0 ? `${selectedCreators.length} vybráno` : 'Všichni'}
+              </summary>
+              <div className="gantt-multiselect-menu">
+                <button
+                  type="button"
+                  className="gantt-multiselect-clear"
+                  onClick={() => setSelectedCreators([])}
+                >
+                  Všichni
+                </button>
+                {creators.map(creator => (
+                  <label key={creator} className="gantt-multiselect-option">
+                    <input
+                      type="checkbox"
+                      checked={selectedCreators.includes(creator)}
+                      onChange={() =>
+                        setSelectedCreators(prev =>
+                          prev.includes(creator)
+                            ? prev.filter(c => c !== creator)
+                            : [...prev, creator],
+                        )
+                      }
+                    />
+                    <span>{creator}</span>
                   </label>
                 ))}
               </div>

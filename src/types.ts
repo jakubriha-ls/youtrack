@@ -49,6 +49,7 @@ export interface YouTrackIssue {
   projectCategory?: string;
   assignee?: string;
   owner?: string;
+  creator?: string;
   startDate?: number;
   dueDate?: number;
 }
@@ -69,6 +70,8 @@ export interface AllTasksFilterPreset {
   searchQuery?: string;
   teams?: string[];
   assignees?: string[];
+  owners?: string[];
+  creators?: string[];
   statuses?: string[];
   projectCategories?: string[];
   showOnlyOverdue?: boolean;
