@@ -2200,6 +2200,19 @@ summary:focus-visible {
   border-color: #32446d;
 }
 
+body:not(.light-theme) .gantt-multiselect-clear {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
+  font-weight: 600;
+}
+
+body:not(.light-theme) .gantt-multiselect-clear:hover {
+  background: #334155;
+  border-color: #64748b;
+  color: #ffffff;
+}
+
 .gantt-multiselect-option,
 .detail-value,
 .detail-section p,
