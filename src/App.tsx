@@ -5,6 +5,7 @@ import { ConfigForm } from './components/ConfigForm';
 import { GanttChart } from './components/GanttChart';
 import { AllTasks } from './components/AllTasks';
 import { Statistics } from './components/Statistics';
+import { TimelineExclusions } from './components/TimelineExclusions';
 import { ConfigProvider } from './ConfigContext';
 
 const STORAGE_KEY = 'youtrack-config';
@@ -24,7 +25,9 @@ function App() {
   const [allTasksIssues, setAllTasksIssues] = useState<YouTrackIssue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'gantt' | 'ganttall' | 'statistics' | 'alltasks'>('gantt');
+  const [activeView, setActiveView] = useState<
+    'gantt' | 'ganttall' | 'excluded' | 'statistics' | 'alltasks'
+  >('gantt');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [dashboardPassword, setDashboardPassword] = useState<string>('');
@@ -80,14 +83,14 @@ function App() {
     if (savedUi) {
       try {
         const parsedUi = JSON.parse(savedUi) as Partial<{
-          activeView: 'gantt' | 'ganttall' | 'statistics' | 'alltasks';
+          activeView: 'gantt' | 'ganttall' | 'excluded' | 'statistics' | 'alltasks';
           selectedTags: string[];
           selectedTag: string;
           theme: 'dark' | 'light';
         }>;
         if (
           parsedUi.activeView &&
-          ['gantt', 'ganttall', 'statistics', 'alltasks'].includes(parsedUi.activeView)
+          ['gantt', 'ganttall', 'excluded', 'statistics', 'alltasks'].includes(parsedUi.activeView)
         ) {
           setActiveView(parsedUi.activeView);
         }
@@ -340,6 +343,12 @@ function App() {
     📅 Gantt all tasks
   </button>
   <button
+    className={`tab ${activeView === 'excluded' ? 'active' : ''}`}
+    onClick={() => setActiveView('excluded')}
+  >
+    🚫 Out of timeline
+  </button>
+  <button
     className={`tab ${activeView === 'statistics' ? 'active' : ''}`}
     onClick={() => setActiveView('statistics')}
   >
@@ -358,6 +367,7 @@ function App() {
               <GanttChart issues={wcIssues} variant="wc" sortedByLabel={wcSortedByLabel} />
             )}
             {activeView === 'ganttall' && <GanttChart issues={allTasksIssues} variant="all" />}
+            {activeView === 'excluded' && <TimelineExclusions issues={wcIssues} variant="wc" />}
             {activeView === 'statistics' && (
               <Statistics issues={allTasksIssues} onOpenAllTasksFilter={handleStatisticsDrilldown} />
             )}
