@@ -260,6 +260,30 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     const trimmedSearch = search.trim();
     const exactIdSearch =
       /^MKT-\d+$/i.test(trimmedSearch) ? trimmedSearch.toUpperCase() : '';
+    const focusIssue = exactIdSearch
+      ? issues.find(i => i.idReadable.toUpperCase() === exactIdSearch)
+      : null;
+    const focusIds = new Set<string>();
+    if (focusIssue) {
+      focusIds.add(focusIssue.id);
+      focusIssue.subtasks?.forEach(sub => focusIds.add(sub.id));
+      issues.forEach(candidate => {
+        if (candidate.subtasks?.some(sub => sub.id === focusIssue.id)) {
+          focusIds.add(candidate.id);
+        }
+      });
+    }
+
+    if (focusIssue) {
+      return issues.filter(issue => {
+        if (!focusIds.has(issue.id)) return false;
+        if (!issue.startDate || !issue.dueDate) return false;
+        if (toLocalMidnight(issue.dueDate) < CLAMP_START) return false;
+        if (toLocalMidnight(issue.startDate) > CLAMP_END) return false;
+        return true;
+      });
+    }
+
     return issues.filter(issue => {
       const isExactIdMatch =
         Boolean(exactIdSearch) && issue.idReadable.toUpperCase() === exactIdSearch;
