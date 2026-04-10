@@ -257,35 +257,44 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   ]);
 
   const issuesWithDates = useMemo<YouTrackIssue[]>(() => {
+    const trimmedSearch = search.trim();
+    const exactIdSearch =
+      /^MKT-\d+$/i.test(trimmedSearch) ? trimmedSearch.toUpperCase() : '';
     return issues.filter(issue => {
+      const isExactIdMatch =
+        Boolean(exactIdSearch) && issue.idReadable.toUpperCase() === exactIdSearch;
       if (!issue.startDate || !issue.dueDate) return false;
       if (!isAllTasksVariant && issue.summary.toLowerCase().includes('master task')) {
         return false;
       }
-      if (!showClosedTasks && isDoneStatus(issue.status)) {
+      if (!isExactIdMatch && !showClosedTasks && isDoneStatus(issue.status)) {
         return false;
       }
       if (toLocalMidnight(issue.dueDate) < CLAMP_START) return false;
       if (toLocalMidnight(issue.startDate) > CLAMP_END) return false;
       if (
+        !isExactIdMatch &&
         assigneeFilters.length > 0 &&
         (!issue.assignee || !assigneeFilters.includes(issue.assignee))
       ) {
         return false;
       }
       if (
+        !isExactIdMatch &&
         mktTeamFilters.length > 0 &&
         (!issue.mktTeam || !issue.mktTeam.some(team => mktTeamFilters.includes(team)))
       ) {
         return false;
       }
       if (
+        !isExactIdMatch &&
         projectCategoryFilters.length > 0 &&
         (!issue.projectCategory ||
           !projectCategoryFilters.includes(issue.projectCategory))
       )
         return false;
       if (
+        !isExactIdMatch &&
         !isAllTasksVariant &&
         statusFilter !== '__all__' &&
         getStatusDisplayName(issue.status) !== statusFilter
@@ -293,6 +302,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
         return false;
       }
       if (
+        !isExactIdMatch &&
         isAllTasksVariant &&
         selectedStatuses.length > 0 &&
         !selectedStatuses.includes(getStatusDisplayName(issue.status))
