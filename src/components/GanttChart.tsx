@@ -478,14 +478,10 @@ export const GanttChart: React.FC<GanttChartProps> = ({
         });
       });
 
-      // Remove roots only for "leaf" children that are actually attached.
-      // If an issue is both child and parent, keep it as root so its own subtree
-      // does not disappear when expanding/collapsing.
+      // Remove roots only for children that are actually attached under a visible parent.
+      // If parent is missing, issue stays as root and remains visible.
       return sortedIssues
-        .filter(issue => {
-          if (!attachedChildIds.has(issue.id)) return true;
-          return (issue.subtasks?.length || 0) > 0;
-        })
+        .filter(issue => !attachedChildIds.has(issue.id))
         .map(issue => groups.get(issue.id)!)
         .filter(Boolean);
     },
