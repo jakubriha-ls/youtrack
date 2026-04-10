@@ -220,6 +220,20 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     return byId;
   };
 
+  const matchesSearch = (issue: YouTrackIssue, q: string): boolean => {
+    if (!q) return true;
+    const haystack = [
+      issue.summary,
+      issue.idReadable,
+      issue.assignee ?? '',
+      issue.projectCategory ?? '',
+      ...(issue.mktTeam ?? []),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
+  };
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (assigneeFilters.length > 0) count += 1;
@@ -243,7 +257,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   ]);
 
   const issuesWithDates = useMemo<YouTrackIssue[]>(() => {
-    const q = search.trim().toLowerCase();
     return issues.filter(issue => {
       if (!issue.startDate || !issue.dueDate) return false;
       if (!isAllTasksVariant && issue.summary.toLowerCase().includes('master task')) {
@@ -286,18 +299,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       ) {
         return false;
       }
-      if (q) {
-        const haystack = [
-          issue.summary,
-          issue.idReadable,
-          issue.assignee ?? '',
-          issue.projectCategory ?? '',
-          ...(issue.mktTeam ?? []),
-        ]
-          .join(' ')
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
       return true;
     });
   }, [
@@ -307,7 +308,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     projectCategoryFilters,
     statusFilter,
     selectedStatuses,
-    search,
     CLAMP_END,
     isAllTasksVariant,
     showClosedTasks,
@@ -463,6 +463,24 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     [issuesWithDates, sortBy],
   );
 
+  const searchedGroupedItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return groupedItems;
+    return groupedItems
+      .map(group => {
+        const parentMatch = matchesSearch(group.issue, q);
+        if (parentMatch) return group;
+        const matchedChildren = group.children.filter(child =>
+          matchesSearch(child.issue, q),
+        );
+        if (matchedChildren.length > 0) {
+          return { issue: group.issue, children: matchedChildren };
+        }
+        return null;
+      })
+      .filter((group): group is (typeof groupedItems)[number] => Boolean(group));
+  }, [groupedItems, search]);
+
   const orderedItems = useMemo(() => {
     const flattened: Array<{
       issue: YouTrackIssue;
@@ -470,7 +488,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       hasChildren: boolean;
     }> = [];
 
-    groupedItems.forEach(group => {
+    searchedGroupedItems.forEach(group => {
       const hasChildren = group.children.length > 0;
       flattened.push({
         issue: group.issue,
@@ -490,7 +508,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     });
 
     return flattened;
-  }, [groupedItems, expandedParentIds]);
+  }, [searchedGroupedItems, expandedParentIds]);
 
   const visibilityDiagnostic = useMemo(() => {
     const needle = visibilityCheckId.trim().toUpperCase();
@@ -561,7 +579,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
       }
     }
 
-    const collapsedParent = groupedItems.find(
+    const collapsedParent = searchedGroupedItems.find(
       group =>
         group.children.some(child => child.issue.id === issue.id) &&
         !expandedParentIds.includes(group.issue.id),
@@ -592,14 +610,14 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     statusFilter,
     selectedStatuses,
     search,
-    groupedItems,
+    searchedGroupedItems,
     expandedParentIds,
     orderedItems,
   ]);
 
   const expandableParentIds = useMemo(
-    () => groupedItems.filter(group => group.children.length > 0).map(group => group.issue.id),
-    [groupedItems],
+    () => searchedGroupedItems.filter(group => group.children.length > 0).map(group => group.issue.id),
+    [searchedGroupedItems],
   );
   const areAllParentsExpanded =
     expandableParentIds.length > 0 &&
