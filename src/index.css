@@ -543,6 +543,10 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+.gantt-count-note-muted {
+  opacity: 0.85;
+}
+
 .gantt-container {
   margin-top: 20px;
   overflow-x: auto;

@@ -96,10 +96,12 @@ export class YouTrackAPI {
 
         if (linkName === 'Subtask' || linkName === 'parent for') {
           relationType = 'subtask';
+          // Keep parent-child parsing robust across YouTrack direction variants:
+          // - "parent for" issues should be treated as children of current issue.
+          // - "Subtask" usually points to parent issue, so it should not create child rows.
           treatAsChild =
-            (linkName === 'Subtask' && direction === 'OUTWARD') ||
-            // YouTrack "parent for" points from parent -> child when direction is OUTWARD.
-            (linkName === 'parent for' && direction === 'OUTWARD');
+            linkName === 'parent for' ||
+            (linkName === 'Subtask' && direction === 'OUTWARD');
           relationForDetail = treatAsChild ? 'subtask' : 'parent';
         } else if (linkName === 'Relates' || linkName === 'relates to') {
           relationType = 'related';
