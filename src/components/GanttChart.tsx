@@ -406,59 +406,50 @@ export const GanttChart: React.FC<GanttChartProps> = ({
         byId.set(issue.id, issue);
       });
 
-      // označíme všechny issues, které někde vystupují jako subtask/related-child
-      const childIds = new Set<string>();
+      // Build all issues as roots first; then attach children where possible.
+      // This avoids dropping a child when its parent is missing from current timeline slice.
+      const groups = new Map<
+        string,
+        {
+          issue: YouTrackIssue;
+          children: Array<{ issue: YouTrackIssue; relationType: 'subtask' | 'related' }>;
+        }
+      >();
       sortedIssues.forEach(issue => {
-        issue.subtasks?.forEach(sub => {
-          childIds.add(sub.id);
+        groups.set(issue.id, { issue, children: [] });
+      });
+
+      const attachedChildIds = new Set<string>();
+      sortedIssues.forEach(parent => {
+        const parentGroup = groups.get(parent.id);
+        if (!parentGroup) return;
+        const sortedChildren = (parent.subtasks ?? []).slice().sort((a, b) => {
+          const rankA = a.relationType === 'related' ? 1 : 0;
+          const rankB = b.relationType === 'related' ? 1 : 0;
+          if (rankA !== rankB) return rankA - rankB;
+          const issueA = byId.get(a.id);
+          const issueB = byId.get(b.id);
+          if (!issueA || !issueB) {
+            return a.idReadable.localeCompare(b.idReadable, 'cs');
+          }
+          return compareIssues(issueA, issueB);
+        });
+
+        sortedChildren.forEach(sub => {
+          const subIssue = byId.get(sub.id);
+          if (!subIssue || subIssue.id === parent.id) return;
+          const relType = sub.relationType === 'related' ? 'related' : 'subtask';
+          parentGroup.children.push({ issue: subIssue, relationType: relType });
+          attachedChildIds.add(subIssue.id);
         });
       });
 
-      const result: Array<{
-        issue: YouTrackIssue;
-        children: Array<{ issue: YouTrackIssue; relationType: 'subtask' | 'related' }>;
-      }> = [];
-      const visited = new Set<string>();
-
-      sortedIssues.forEach(issue => {
-        if (visited.has(issue.id)) return;
-
-        const isChildOnly = childIds.has(issue.id);
-        // Pokud je issue pouze subtaskem někoho jiného, nebudeme ho renderovat jako root
-        if (!isChildOnly) {
-          result.push({ issue, children: [] });
-          visited.add(issue.id);
-        }
-
-        const parentGroup = result.find(group => group.issue.id === issue.id);
-        const sortedChildren = (issue.subtasks ?? [])
-          .slice()
-          .sort((a, b) => {
-            const rankA = a.relationType === 'related' ? 1 : 0;
-            const rankB = b.relationType === 'related' ? 1 : 0;
-            if (rankA !== rankB) return rankA - rankB;
-            const issueA = byId.get(a.id);
-            const issueB = byId.get(b.id);
-            if (!issueA || !issueB) {
-              return a.idReadable.localeCompare(b.idReadable, 'cs');
-            }
-            return compareIssues(issueA, issueB);
-          });
-        if (sortedChildren.length > 0) {
-          sortedChildren.forEach(sub => {
-            const subIssue = byId.get(sub.id);
-            if (subIssue && !visited.has(subIssue.id)) {
-              const relType = sub.relationType === 'related' ? 'related' : 'subtask';
-              if (parentGroup) {
-                parentGroup.children.push({ issue: subIssue, relationType: relType });
-              }
-              visited.add(subIssue.id);
-            }
-          });
-        }
-      });
-
-      return result;
+      // Remove roots only for children that are actually attached under a visible parent.
+      // If parent is missing, issue stays as root and remains visible.
+      return sortedIssues
+        .filter(issue => !attachedChildIds.has(issue.id))
+        .map(issue => groups.get(issue.id)!)
+        .filter(Boolean);
     },
     [issuesWithDates, sortBy],
   );
