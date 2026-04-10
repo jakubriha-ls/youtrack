@@ -27,6 +27,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(STATUS_ORDER);
   const [search, setSearch] = useState<string>('');
   const [showClosedTasks, setShowClosedTasks] = useState<boolean>(true);
+  const [visibilityCheckId, setVisibilityCheckId] = useState<string>('');
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -491,6 +492,111 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     return flattened;
   }, [groupedItems, expandedParentIds]);
 
+  const visibilityDiagnostic = useMemo(() => {
+    const needle = visibilityCheckId.trim().toUpperCase();
+    if (!needle) return null;
+
+    const issue = issues.find(
+      i => i.idReadable.toUpperCase() === needle || i.id.toUpperCase() === needle,
+    );
+    if (!issue) {
+      return {
+        ok: false,
+        text: 'Issue není v datasetu tohoto pohledu (zkontroluj tagy/načtení dat).',
+      };
+    }
+
+    const reasons: string[] = [];
+    if (!issue.startDate) reasons.push('chybí Start Date');
+    if (!issue.dueDate) reasons.push('chybí Due Date');
+    if (!isAllTasksVariant && issue.summary.toLowerCase().includes('master task')) {
+      reasons.push('ve WC pohledu jsou "Master Task" skryté');
+    }
+    if (issue.dueDate && toLocalMidnight(issue.dueDate) < CLAMP_START) {
+      reasons.push('Due Date je před začátkem osy');
+    }
+    if (issue.startDate && toLocalMidnight(issue.startDate) > CLAMP_END) {
+      reasons.push('Start Date je za koncem osy');
+    }
+    if (!showClosedTasks && isDoneStatus(issue.status)) {
+      reasons.push('task je Done a je vypnuté "Show closed tasks"');
+    }
+    if (assigneeFilters.length > 0 && (!issue.assignee || !assigneeFilters.includes(issue.assignee))) {
+      reasons.push('nesedí filtr Assignee');
+    }
+    if (
+      mktTeamFilters.length > 0 &&
+      (!issue.mktTeam || !issue.mktTeam.some(team => mktTeamFilters.includes(team)))
+    ) {
+      reasons.push('nesedí filtr MKT Team');
+    }
+    if (
+      projectCategoryFilters.length > 0 &&
+      (!issue.projectCategory || !projectCategoryFilters.includes(issue.projectCategory))
+    ) {
+      reasons.push('nesedí filtr Project category');
+    }
+    if (!isAllTasksVariant && statusFilter !== '__all__' && getStatusDisplayName(issue.status) !== statusFilter) {
+      reasons.push('nesedí filtr Status');
+    }
+    if (
+      isAllTasksVariant &&
+      selectedStatuses.length > 0 &&
+      !selectedStatuses.includes(getStatusDisplayName(issue.status))
+    ) {
+      reasons.push('nesedí filtr Status');
+    }
+    if (search.trim()) {
+      const haystack = [
+        issue.summary,
+        issue.idReadable,
+        issue.assignee ?? '',
+        issue.projectCategory ?? '',
+        ...(issue.mktTeam ?? []),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (!haystack.includes(search.trim().toLowerCase())) {
+        reasons.push('nesedí Search filtr');
+      }
+    }
+
+    const collapsedParent = groupedItems.find(
+      group =>
+        group.children.some(child => child.issue.id === issue.id) &&
+        !expandedParentIds.includes(group.issue.id),
+    );
+    if (collapsedParent) {
+      reasons.push(`issue je schované pod parentem ${collapsedParent.issue.idReadable} (sbalené)`);
+    }
+
+    const visible = orderedItems.some(item => item.issue.id === issue.id);
+    if (!visible && reasons.length === 0) {
+      reasons.push('issue není ve výsledném seznamu po aplikaci filtrů');
+    }
+
+    if (reasons.length > 0) {
+      return { ok: false, text: reasons.join(' | ') };
+    }
+    return { ok: true, text: 'Issue je v tomto pohledu viditelné.' };
+  }, [
+    visibilityCheckId,
+    issues,
+    isAllTasksVariant,
+    CLAMP_START,
+    CLAMP_END,
+    showClosedTasks,
+    assigneeFilters,
+    mktTeamFilters,
+    projectCategoryFilters,
+    statusFilter,
+    selectedStatuses,
+    search,
+    groupedItems,
+    expandedParentIds,
+    orderedItems,
+  ]);
+
   const expandableParentIds = useMemo(
     () => groupedItems.filter(group => group.children.length > 0).map(group => group.issue.id),
     [groupedItems],
@@ -797,6 +903,23 @@ export const GanttChart: React.FC<GanttChartProps> = ({
           />
           <span>Show closed tasks (Done)</span>
         </label>
+        <div className="gantt-filter gantt-filter--debug">
+          <label className="gantt-filter-label" htmlFor="gantt-visibility-check">
+            Why missing:
+          </label>
+          <input
+            id="gantt-visibility-check"
+            className="gantt-filter-input"
+            placeholder="MKT-370"
+            value={visibilityCheckId}
+            onChange={e => setVisibilityCheckId(e.target.value)}
+          />
+        </div>
+        {visibilityDiagnostic && (
+          <div className={`gantt-visibility-note ${visibilityDiagnostic.ok ? 'ok' : 'warn'}`}>
+            {visibilityDiagnostic.text}
+          </div>
+        )}
         <button className="gantt-reset-btn" onClick={resetFilters}>
           Reset filtru
         </button>
