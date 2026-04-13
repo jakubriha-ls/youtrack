@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { YouTrackIssue } from '../types';
 import { formatDate } from '../dateUtils';
+import { useConfig } from '../ConfigContext';
 
 interface TimelineExclusionsProps {
   issues: YouTrackIssue[];
@@ -22,6 +23,7 @@ export const TimelineExclusions: React.FC<TimelineExclusionsProps> = ({
   issues,
   variant = 'wc',
 }) => {
+  const { config } = useConfig();
   const [search, setSearch] = useState('');
   const clampStart = toLocalMidnight(new Date(2026, 0, 1).getTime());
   const clampEnd = toLocalMidnight(
@@ -87,6 +89,8 @@ export const TimelineExclusions: React.FC<TimelineExclusionsProps> = ({
             <tr>
               <th>ID</th>
               <th>Summary</th>
+              <th>Owner</th>
+              <th>Assignee</th>
               <th>Start</th>
               <th>Due</th>
               <th>Reason</th>
@@ -95,8 +99,20 @@ export const TimelineExclusions: React.FC<TimelineExclusionsProps> = ({
           <tbody>
             {filtered.map(({ issue, reasons }) => (
               <tr key={issue.id}>
-                <td className="col-id">{issue.idReadable}</td>
+                <td className="col-id">
+                  <a
+                    href={`${config.baseUrl}/issue/${issue.idReadable}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="timeline-exclusion-link"
+                    title="Open in YouTrack"
+                  >
+                    {issue.idReadable}
+                  </a>
+                </td>
                 <td className="col-summary">{issue.summary}</td>
+                <td>{issue.owner || '-'}</td>
+                <td>{issue.assignee || '-'}</td>
                 <td>{formatDate(issue.startDate)}</td>
                 <td>{formatDate(issue.dueDate)}</td>
                 <td>{reasons.join(' | ')}</td>

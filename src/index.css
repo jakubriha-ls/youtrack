@@ -712,6 +712,16 @@ summary:focus-visible {
   color: #fde68a;
 }
 
+.timeline-exclusion-link {
+  color: #7dd3fc;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.timeline-exclusion-link:hover {
+  text-decoration: underline;
+}
+
 .gantt-legend-item {
   display: inline-flex;
   align-items: center;
