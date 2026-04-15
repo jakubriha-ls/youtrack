@@ -13,6 +13,11 @@ type ExclusionRow = {
   reasons: string[];
 };
 
+type HiddenHierarchyRow = {
+  issue: YouTrackIssue;
+  parentIds: string[];
+};
+
 const toLocalMidnight = (timestamp: number): number => {
   const d = new Date(timestamp);
   d.setHours(0, 0, 0, 0);
@@ -52,6 +57,37 @@ export const TimelineExclusions: React.FC<TimelineExclusionsProps> = ({
         return { issue, reasons };
       })
       .filter(row => row.reasons.length > 0)
+      .sort((a, b) => a.issue.idReadable.localeCompare(b.issue.idReadable, 'cs'));
+  }, [issues, clampStart, clampEnd, variant]);
+
+  const hiddenByHierarchy = useMemo<HiddenHierarchyRow[]>(() => {
+    const timelineEligible = new Map<string, YouTrackIssue>();
+    issues.forEach(issue => {
+      if (!issue.startDate || !issue.dueDate) return;
+      const start = toLocalMidnight(issue.startDate);
+      const due = toLocalMidnight(issue.dueDate);
+      if (start > due) return;
+      if (due < clampStart) return;
+      if (start > clampEnd) return;
+      if (variant === 'wc' && issue.summary.toLowerCase().includes('master task')) return;
+      timelineEligible.set(issue.id, issue);
+    });
+
+    const parentMap = new Map<string, Set<string>>();
+    timelineEligible.forEach(parent => {
+      parent.subtasks?.forEach(sub => {
+        if (!timelineEligible.has(sub.id)) return;
+        if (!parentMap.has(sub.id)) parentMap.set(sub.id, new Set());
+        parentMap.get(sub.id)!.add(parent.idReadable);
+      });
+    });
+
+    return Array.from(parentMap.entries())
+      .map(([id, parents]) => ({
+        issue: timelineEligible.get(id)!,
+        parentIds: Array.from(parents).sort((a, b) => a.localeCompare(b, 'cs')),
+      }))
+      .filter(row => row.parentIds.length > 0)
       .sort((a, b) => a.issue.idReadable.localeCompare(b.issue.idReadable, 'cs'));
   }, [issues, clampStart, clampEnd, variant]);
 
@@ -123,6 +159,50 @@ export const TimelineExclusions: React.FC<TimelineExclusionsProps> = ({
         {filtered.length === 0 && (
           <div className="no-results">
             <p>No excluded tasks for this timeline scope.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="all-tasks-header" style={{ marginTop: 16 }}>
+        <div className="header-top">
+          <h2>Hidden by hierarchy · {hiddenByHierarchy.length} tasks</h2>
+        </div>
+      </div>
+      <div className="all-tasks-table-container">
+        <table className="all-tasks-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Summary</th>
+              <th>Parent task(s)</th>
+              <th>Start</th>
+              <th>Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            {hiddenByHierarchy.map(({ issue, parentIds }) => (
+              <tr key={issue.id}>
+                <td className="col-id">
+                  <a
+                    href={`${config.baseUrl}/issue/${issue.idReadable}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="timeline-exclusion-link"
+                  >
+                    {issue.idReadable}
+                  </a>
+                </td>
+                <td className="col-summary">{issue.summary}</td>
+                <td>{parentIds.join(', ')}</td>
+                <td>{formatDate(issue.startDate)}</td>
+                <td>{formatDate(issue.dueDate)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {hiddenByHierarchy.length === 0 && (
+          <div className="no-results">
+            <p>No tasks hidden by hierarchy in this scope.</p>
           </div>
         )}
       </div>
